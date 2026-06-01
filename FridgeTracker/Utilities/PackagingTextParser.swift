@@ -7,6 +7,9 @@ struct PackagingOCRResult {
 }
 
 struct PackagingTextParser {
+    private static let shelfLifeRegex = try? NSRegularExpression(pattern: #"保质期\s*(\d+)\s*(天|日|个月|月)"#)
+    private static let dateRegex = try? NSRegularExpression(pattern: #"(20\d{2})[.\-/年](\d{1,2})[.\-/月](\d{1,2})日?"#)
+
     static func parse(lines: [String], calendar: Calendar = .current) -> PackagingOCRResult {
         let normalizedLines = lines
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -67,7 +70,7 @@ struct PackagingTextParser {
     }
 
     private static func shelfLife(in text: String) -> (component: Calendar.Component, value: Int)? {
-        guard let match = firstMatch(pattern: #"保质期\s*(\d+)\s*(天|日|个月|月)"#, in: text), match.numberOfRanges >= 3,
+        guard let match = firstMatch(shelfLifeRegex, in: text), match.numberOfRanges >= 3,
               let valueRange = Range(match.range(at: 1), in: text),
               let unitRange = Range(match.range(at: 2), in: text),
               let value = Int(text[valueRange]) else {
@@ -82,7 +85,7 @@ struct PackagingTextParser {
     }
 
     private static func firstDate(in text: String, calendar: Calendar = .current) -> Date? {
-        guard let match = firstMatch(pattern: #"(20\d{2})[.\-/年](\d{1,2})[.\-/月](\d{1,2})日?"#, in: text), match.numberOfRanges >= 4,
+        guard let match = firstMatch(dateRegex, in: text), match.numberOfRanges >= 4,
               let yearRange = Range(match.range(at: 1), in: text),
               let monthRange = Range(match.range(at: 2), in: text),
               let dayRange = Range(match.range(at: 3), in: text),
@@ -95,8 +98,8 @@ struct PackagingTextParser {
         return calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
 
-    private static func firstMatch(pattern: String, in text: String) -> NSTextCheckingResult? {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+    private static func firstMatch(_ regex: NSRegularExpression?, in text: String) -> NSTextCheckingResult? {
+        guard let regex else { return nil }
         return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))
     }
 

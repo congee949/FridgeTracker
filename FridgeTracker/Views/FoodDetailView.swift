@@ -10,18 +10,8 @@ struct FoodDetailView: View {
     @State private var showDiscardReplenishPrompt = false
     @State private var statusMessage: String?
 
-    private var expiryColor: Color {
-        if item.isExpired { return .red }
-        if item.isExpiringSoon { return .orange }
-        return .green
-    }
-
-    private var expiryText: String {
-        let days = item.daysUntilExpiry
-        if days < 0 { return "已过期 \(-days) 天" }
-        if days == 0 { return "今天过期" }
-        return "\(days) 天后过期"
-    }
+    private var expiryColor: Color { expiryStatusColor(daysUntilExpiry: item.daysUntilExpiry) }
+    private var expiryText: String { expiryStatusText(daysUntilExpiry: item.daysUntilExpiry) }
 
     var body: some View {
         ScrollView {
@@ -162,27 +152,17 @@ struct FoodDetailView: View {
     }
 
     private func addToReplenishment() {
-        let descriptor = FetchDescriptor<ReplenishmentItem>()
-        let existing = ((try? modelContext.fetch(descriptor)) ?? []).filter {
-            $0.completedAt == nil && $0.name == item.name
-        }
-        if existing.isEmpty {
-            modelContext.insert(ReplenishmentItem(item: item))
-            statusMessage = "已加入补货清单"
-        } else {
-            statusMessage = "已在补货清单中"
-        }
+        let inserted = ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
+        statusMessage = inserted ? "已加入补货清单" : "已在补货清单中"
         WidgetDataStore.refresh(using: modelContext)
     }
-
-    private static let autoReplenishThreshold = 2
 
     private func performPendingAction() {
         guard let pendingAction else { return }
         switch pendingAction {
         case .consumed:
             modelContext.insert(FoodDispositionRecord(item: item, action: .consumed))
-            autoAddToReplenishmentIfNeeded()
+            ReplenishmentItem.autoAddIfNeeded(for: item, in: modelContext)
             reduceQuantityOrDelete(statusPrefix: "已吃掉 1 份")
         case .discarded:
             modelContext.insert(FoodDispositionRecord(item: item, action: .discarded))
@@ -197,32 +177,8 @@ struct FoodDetailView: View {
         self.pendingAction = nil
     }
 
-    private func autoAddToReplenishmentIfNeeded() {
-        let name = item.name
-        let descriptor = FetchDescriptor<FoodDispositionRecord>(
-            predicate: #Predicate<FoodDispositionRecord> { $0.foodName == name }
-        )
-        let records = (try? modelContext.fetch(descriptor)) ?? []
-        let consumedCount = records.filter { $0.action == .consumed }.count
-        guard consumedCount >= Self.autoReplenishThreshold else { return }
-
-        let repDesc = FetchDescriptor<ReplenishmentItem>(
-            predicate: #Predicate<ReplenishmentItem> { $0.completedAt == nil && $0.name == name }
-        )
-        let existing = (try? modelContext.fetchCount(repDesc)) ?? 0
-        guard existing == 0 else { return }
-
-        modelContext.insert(ReplenishmentItem(item: item))
-    }
-
     private func addDiscardedToReplenishment() {
-        let name = item.name
-        let repDesc = FetchDescriptor<ReplenishmentItem>(
-            predicate: #Predicate { $0.completedAt == nil && $0.name == name }
-        )
-        let existing = (try? modelContext.fetchCount(repDesc)) ?? 0
-        guard existing == 0 else { return }
-        modelContext.insert(ReplenishmentItem(item: item))
+        ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
     }
 
     private func deleteItem() {

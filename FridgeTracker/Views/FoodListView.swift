@@ -3,7 +3,6 @@ import SwiftData
 
 struct FoodListView: View {
     let storageZone: StorageZone?
-    var onScroll: (CGSize) -> Void = { _ in }
     @Binding var pendingDetailID: UUID?
 
     @Environment(\.modelContext) private var modelContext
@@ -12,9 +11,8 @@ struct FoodListView: View {
     @State private var showAddSheet = false
     @State private var selectedItem: FoodItem?
 
-    init(storageZone: StorageZone?, onScroll: @escaping (CGSize) -> Void = { _ in }, pendingDetailID: Binding<UUID?> = .constant(nil)) {
+    init(storageZone: StorageZone?, pendingDetailID: Binding<UUID?> = .constant(nil)) {
         self.storageZone = storageZone
-        self.onScroll = onScroll
         self._pendingDetailID = pendingDetailID
     }
 
@@ -135,11 +133,6 @@ struct FoodListView: View {
                     }
                 }
                 .listStyle(.plain)
-                .simultaneousGesture(
-                    DragGesture().onEnded { value in
-                        onScroll(value.translation)
-                    }
-                )
                 .navigationDestination(item: $selectedItem) { item in
                     FoodDetailView(item: item)
                 }
@@ -148,16 +141,9 @@ struct FoodListView: View {
             .sheet(isPresented: $showAddSheet) {
                 AddFoodView(storageZone: storageZone ?? .fridge)
             }
-            .onChange(of: pendingDetailID) { _, id in
-                guard let id else { return }
-                selectedItem = allItems.first { $0.uuid == id }
-                pendingDetailID = nil
-            }
-            .onAppear {
-                guard let id = pendingDetailID else { return }
-                selectedItem = allItems.first { $0.uuid == id }
-                pendingDetailID = nil
-            }
+            .onChange(of: pendingDetailID) { _, _ in resolvePendingDetail() }
+            .onChange(of: allItems.count) { _, _ in resolvePendingDetail() }
+            .onAppear { resolvePendingDetail() }
             .overlay {
                 if filteredItems.isEmpty {
                     ContentUnavailableView(
@@ -170,11 +156,15 @@ struct FoodListView: View {
         }
     }
 
-    private static let autoReplenishThreshold = 2
+    private func resolvePendingDetail() {
+        guard let id = pendingDetailID, !allItems.isEmpty else { return }
+        selectedItem = allItems.first { $0.uuid == id }
+        pendingDetailID = nil
+    }
 
     private func consumeItem(_ item: FoodItem) {
         modelContext.insert(FoodDispositionRecord(item: item, action: .consumed))
-        autoAddToReplenishmentIfNeeded(for: item)
+        ReplenishmentItem.autoAddIfNeeded(for: item, in: modelContext)
         reduceQuantityOrRemove(item)
     }
 
@@ -184,33 +174,8 @@ struct FoodListView: View {
     }
 
     private func addToReplenishment(_ item: FoodItem) {
-        let name = item.name
-        let descriptor = FetchDescriptor<ReplenishmentItem>(
-            predicate: #Predicate<ReplenishmentItem> { $0.completedAt == nil && $0.name == name }
-        )
-        let existing = (try? modelContext.fetchCount(descriptor)) ?? 0
-        guard existing == 0 else { return }
-
-        modelContext.insert(ReplenishmentItem(item: item))
+        ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
         WidgetDataStore.refresh(using: modelContext)
-    }
-
-    private func autoAddToReplenishmentIfNeeded(for item: FoodItem) {
-        let name = item.name
-        let descriptor = FetchDescriptor<FoodDispositionRecord>(
-            predicate: #Predicate<FoodDispositionRecord> { $0.foodName == name }
-        )
-        let records = (try? modelContext.fetch(descriptor)) ?? []
-        let consumedCount = records.filter { $0.action == .consumed }.count
-        guard consumedCount >= Self.autoReplenishThreshold else { return }
-
-        let replenishmentDescriptor = FetchDescriptor<ReplenishmentItem>(
-            predicate: #Predicate<ReplenishmentItem> { $0.completedAt == nil && $0.name == name }
-        )
-        let existing = (try? modelContext.fetchCount(replenishmentDescriptor)) ?? 0
-        guard existing == 0 else { return }
-
-        modelContext.insert(ReplenishmentItem(item: item))
     }
 
     private func reduceQuantityOrRemove(_ item: FoodItem) {

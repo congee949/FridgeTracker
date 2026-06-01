@@ -3,18 +3,8 @@ import SwiftUI
 struct FoodRowView: View {
     let item: FoodItem
 
-    private var expiryColor: Color {
-        if item.isExpired { return .red }
-        if item.isExpiringSoon { return .orange }
-        return .green
-    }
-
-    private var expiryText: String {
-        let days = item.daysUntilExpiry
-        if days < 0 { return "已过期 \(-days) 天" }
-        if days == 0 { return "今天过期" }
-        return "\(days) 天后过期"
-    }
+    private var expiryColor: Color { expiryStatusColor(daysUntilExpiry: item.daysUntilExpiry) }
+    private var expiryText: String { expiryStatusText(daysUntilExpiry: item.daysUntilExpiry) }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -24,6 +14,7 @@ struct FoodRowView: View {
                 .frame(width: 44, height: 44)
                 .background(Color(.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .accessibilityHidden(true)
 
             // Info
             VStack(alignment: .leading, spacing: 2) {
@@ -46,5 +37,7 @@ struct FoodRowView: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.name)，\(item.category.rawValue)，\(expiryText)")
     }
 }

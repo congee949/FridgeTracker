@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import Vision
+import AVFoundation
+import UIKit
 
 struct AddFoodView: View {
     let storageZone: StorageZone
@@ -33,11 +35,13 @@ struct AddFoodView: View {
     @State private var ocrNameCandidate = ""
     @State private var ocrExpiryDate = Date()
     @State private var ocrErrorMessage: String?
+    @State private var cachedHistoryTemplates: [FoodTemplate] = []
+    @State private var showCameraDeniedAlert = false
 
     private var isEditing: Bool { editItem != nil }
 
     private var suggestedTemplates: [FoodTemplate] {
-        var templates = historySuggestionStore.applyOverrides(to: FoodTemplate.fromHistory(existingItems))
+        var templates = historySuggestionStore.applyOverrides(to: cachedHistoryTemplates)
         let existingNames = Set(templates.map(\.normalizedName))
         templates.append(contentsOf: FoodTemplate.common.filter {
             !historySuggestionStore.isHidden($0.normalizedName) && !existingNames.contains($0.normalizedName)
@@ -48,108 +52,12 @@ struct AddFoodView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("最近添加") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(suggestedTemplates, id: \.normalizedName) { template in
-                                RecentTemplateChip(
-                                    template: template,
-                                    isSelected: isRecentTemplateSelected(template)
-                                ) {
-                                    applyTemplate(template)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-
-                    Text("点选后自动填入名称、分类、图标和存储区域，只需确认新的保质期。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("食材信息") {
-                    Button {
-                        showCamera = true
-                    } label: {
-                        Label("拍包装识别", systemImage: "camera.viewfinder")
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.subheadline.weight(.medium))
-
-                    Button {
-                        showPhotoPicker = true
-                    } label: {
-                        Label("选包装图", systemImage: "photo")
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.subheadline.weight(.medium))
-
-                    if let ocrErrorMessage {
-                        Text(ocrErrorMessage)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    TextField("食材名称", text: $name)
-                        .onChange(of: name) { _, newValue in
-                            applyHistoryIfNeeded(for: newValue)
-                        }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(FoodCategory.allCases, id: \.self) { cat in
-                                Button {
-                                    category = cat
-                                    customIcon = ""
-                                } label: {
-                                    Text("\(cat.icon) \(cat.rawValue)")
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(category == cat ? Color.accentColor : Color(.systemGray6))
-                                        .foregroundColor(category == cat ? .white : .primary)
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-
-                Section("显示图标") {
-                    TextField("自定义 Emoji（可选）", text: $customIcon)
-                    Text("留空时使用当前分类图标：\(category.icon)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("存储区域") {
-                    Picker("存储区域", selection: $zone) {
-                        ForEach(StorageZone.allCases, id: \.self) { z in
-                            Text("\(z.icon) \(z.rawValue)").tag(z)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                Section("日期") {
-                    DatePicker("保质期", selection: $expiryDate, displayedComponents: .date)
-
-                    Toggle("记录购买日期", isOn: $hasPurchaseDate)
-                    if hasPurchaseDate {
-                        DatePicker("购买日期", selection: Binding(
-                            get: { purchaseDate ?? Date() },
-                            set: { purchaseDate = $0 }
-                        ), displayedComponents: .date)
-                    }
-                }
-
-                Section("其他") {
-                    TextField("数量（可选）", text: $quantity)
-                    TextField("备注（可选）", text: $notes)
-                }
+                recentTemplatesSection
+                foodInfoSection
+                iconSection
+                storageSection
+                dateSection
+                otherSection
             }
             .navigationTitle(isEditing ? "编辑食材" : "添加食材")
             .navigationBarTitleDisplayMode(.inline)
@@ -182,6 +90,7 @@ struct AddFoodView: View {
                 )
             }
             .onAppear {
+                rebuildHistoryTemplates()
                 if let item = editItem {
                     name = item.name
                     category = item.category
@@ -202,7 +111,139 @@ struct AddFoodView: View {
                     hasPurchaseDate = template.purchaseDate != nil
                 }
             }
+            .onChange(of: existingItems.count) { _, _ in
+                rebuildHistoryTemplates()
+            }
+            .alert("无法使用相机", isPresented: $showCameraDeniedAlert) {
+                Button("好", role: .cancel) {}
+                Button("前往设置") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            } message: {
+                Text("请在系统设置中允许 FridgeTracker 使用相机后再试，或改用「选包装图」从相册识别。")
+            }
         }
+    }
+
+    private var recentTemplatesSection: some View {
+        Section("最近添加") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestedTemplates, id: \.normalizedName) { template in
+                        RecentTemplateChip(
+                            template: template,
+                            isSelected: isRecentTemplateSelected(template)
+                        ) {
+                            applyTemplate(template)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Text("点选后自动填入名称、分类、图标和存储区域，只需确认新的保质期。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var foodInfoSection: some View {
+        Section("食材信息") {
+            Button {
+                requestCameraThenScan()
+            } label: {
+                Label("拍包装识别", systemImage: "camera.viewfinder")
+            }
+            .buttonStyle(.borderless)
+            .font(.subheadline.weight(.medium))
+
+            Button {
+                showPhotoPicker = true
+            } label: {
+                Label("选包装图", systemImage: "photo")
+            }
+            .buttonStyle(.borderless)
+            .font(.subheadline.weight(.medium))
+
+            if let ocrErrorMessage {
+                Text(ocrErrorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            TextField("食材名称", text: $name)
+                .onChange(of: name) { _, newValue in
+                    applyHistoryIfNeeded(for: newValue)
+                }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(FoodCategory.allCases, id: \.self) { cat in
+                        Button {
+                            category = cat
+                            customIcon = ""
+                        } label: {
+                            Text("\(cat.icon) \(cat.rawValue)")
+                                .font(.subheadline)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(category == cat ? Color.accentColor : Color(.systemGray6))
+                                .foregroundColor(category == cat ? .white : .primary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private var iconSection: some View {
+        Section("显示图标") {
+            TextField("自定义 Emoji（可选）", text: $customIcon)
+            Text("留空时使用当前分类图标：\(category.icon)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var storageSection: some View {
+        Section("存储区域") {
+            Picker("存储区域", selection: $zone) {
+                ForEach(StorageZone.allCases, id: \.self) { z in
+                    Text("\(z.icon) \(z.rawValue)").tag(z)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    private var dateSection: some View {
+        Section("日期") {
+            DatePicker("保质期", selection: $expiryDate, displayedComponents: .date)
+
+            Toggle("记录购买日期", isOn: $hasPurchaseDate)
+            if hasPurchaseDate {
+                DatePicker("购买日期", selection: Binding(
+                    get: { purchaseDate ?? Date() },
+                    set: { purchaseDate = $0 }
+                ), displayedComponents: .date)
+            }
+        }
+    }
+
+    private var otherSection: some View {
+        Section("其他") {
+            TextField("数量（可选）", text: $quantity)
+            TextField("备注（可选）", text: $notes)
+        }
+    }
+
+    private func rebuildHistoryTemplates() {
+        cachedHistoryTemplates = FoodTemplate.fromHistory(existingItems)
     }
 
     private func isRecentTemplateSelected(_ template: FoodTemplate) -> Bool {
@@ -233,7 +274,7 @@ struct AddFoodView: View {
             selectedRecentTemplateName = trimmedName
             return
         }
-        guard let template = historySuggestionStore.template(for: trimmedName, in: existingItems) else {
+        guard let template = historySuggestionStore.template(for: trimmedName, from: cachedHistoryTemplates) else {
             lastAutoAppliedName = nil
             selectedRecentTemplateName = nil
             return
@@ -249,6 +290,25 @@ struct AddFoodView: View {
         expiryDate = Calendar.current.date(byAdding: .day, value: template.defaultShelfLifeDays, to: Date()) ?? expiryDate
         lastAutoAppliedName = trimmedName
         selectedRecentTemplateName = trimmedName
+    }
+
+    private func requestCameraThenScan() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        showCamera = true
+                    } else {
+                        showCameraDeniedAlert = true
+                    }
+                }
+            }
+        default:
+            showCameraDeniedAlert = true
+        }
     }
 
     private func recognizeImage(_ image: UIImage) {
@@ -596,6 +656,12 @@ final class HistorySuggestionStore: ObservableObject {
         let key = normalized(name)
         guard !key.isEmpty, !isHidden(key) else { return nil }
         return FoodTemplate.fromHistory(items).first { $0.normalizedName == key }?.applying(override(for: key))
+    }
+
+    func template(for name: String, from templates: [FoodTemplate]) -> FoodTemplate? {
+        let key = normalized(name)
+        guard !key.isEmpty, !isHidden(key) else { return nil }
+        return templates.first { $0.normalizedName == key }?.applying(override(for: key))
     }
 
     private func normalized(_ name: String) -> String {

@@ -15,7 +15,7 @@ enum WidgetDataStore {
         guard let url = FileManager.default.expiringFoodsSnapshotURL else { return }
 
         let snapshots = items
-            .sorted { $0.expiryDate < $1.expiryDate }
+            .filter { $0.daysUntilExpiry >= -14 }
             .prefix(50)
             .map { item in
                 ExpiringFoodSnapshot(

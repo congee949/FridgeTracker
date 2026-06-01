@@ -17,7 +17,11 @@ class NotificationManager {
         guard UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true else { return }
 
         let daysBefore = daysBefore ?? reminderDaysBefore(for: item)
-        guard let triggerDate = Calendar.current.date(byAdding: .day, value: -daysBefore, to: item.expiryDate), triggerDate > Date() else { return }
+        guard let baseDate = Calendar.current.date(byAdding: .day, value: -daysBefore, to: item.expiryDate) else { return }
+        var triggerComponents = Calendar.current.dateComponents([.year, .month, .day], from: baseDate)
+        triggerComponents.hour = 9
+        triggerComponents.minute = 0
+        guard let triggerDate = Calendar.current.date(from: triggerComponents), triggerDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = item.daysUntilExpiry < 0 ? "食材已过期" : "食材即将过期"
@@ -33,6 +37,13 @@ class NotificationManager {
 
     func cancelNotification(for item: FoodItem) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [item.uuid.uuidString])
+    }
+
+    func rescheduleAll(for items: [FoodItem]) {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        for item in items {
+            scheduleNotification(for: item)
+        }
     }
 
     private func reminderDaysBefore(for item: FoodItem) -> Int {

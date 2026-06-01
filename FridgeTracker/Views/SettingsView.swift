@@ -37,9 +37,12 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("显示") {
-                    LabeledContent("首页排序", value: "按到期日")
-                    LabeledContent("Widget 标题", value: "冰箱提醒")
+                Section {
+                    Text("食材列表的排序可在「食材」页右上角的排序菜单中切换。小组件标题会跟随每个小组件所选的分类自动变化。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("显示")
                 }
 
                 Section("建议") {
@@ -69,6 +72,15 @@ struct SettingsView: View {
             }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: notificationsEnabled) { _, enabled in
+                if enabled {
+                    Task { _ = await NotificationManager.shared.requestPermission() }
+                }
+                NotificationManager.shared.rescheduleAll(for: allItems)
+            }
+            .onChange(of: reminderDaysBefore) { _, _ in
+                NotificationManager.shared.rescheduleAll(for: allItems)
+            }
             .fileExporter(
                 isPresented: Binding(
                     get: { exportDocument != nil },

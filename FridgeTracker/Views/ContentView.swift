@@ -85,8 +85,6 @@ struct ContentView: View {
 }
 
 struct ReplenishmentListView: View {
-    var onScroll: (CGSize) -> Void = { _ in }
-
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ReplenishmentItem.createdAt, order: .reverse) private var allItems: [ReplenishmentItem]
     @State private var selectedItem: ReplenishmentItem?
@@ -149,11 +147,6 @@ struct ReplenishmentListView: View {
                     }
                 }
                 .listStyle(.plain)
-                .simultaneousGesture(
-                    DragGesture().onEnded { value in
-                        onScroll(value.translation)
-                    }
-                )
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $selectedItem) { item in
@@ -192,8 +185,8 @@ struct ReplenishmentListView: View {
     }
 
     private func generateFromHistory() {
-        let threshold = 2
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+        let threshold = ReplenishmentItem.autoReplenishThreshold
+        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
         let existingNames = Set(allItems.filter { $0.completedAt == nil }.map { $0.name })
 
         let descriptor = FetchDescriptor<FoodDispositionRecord>(
@@ -240,8 +233,6 @@ private extension ReplenishmentItem {
 }
 
 struct HistoryView: View {
-    var onScroll: (CGSize) -> Void = { _ in }
-
     @Query(sort: \FoodItem.createdAt, order: .reverse) private var allItems: [FoodItem]
     @ObservedObject private var historySuggestionStore = HistorySuggestionStore.shared
     @State private var searchText = ""
@@ -319,11 +310,6 @@ struct HistoryView: View {
                     }
                 }
                 .listStyle(.plain)
-                .simultaneousGesture(
-                    DragGesture().onEnded { value in
-                        onScroll(value.translation)
-                    }
-                )
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $selectedTemplate) { template in

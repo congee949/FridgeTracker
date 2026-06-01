@@ -1,7 +1,20 @@
 import Foundation
+import SwiftUI
 
 let fridgeTrackerAppGroupIdentifier = "group.com.congee.FridgeTracker"
 let expiringFoodsSnapshotFileName = "expiring-foods.json"
+
+func expiryStatusText(daysUntilExpiry days: Int) -> String {
+    if days < 0 { return "已过期 \(-days) 天" }
+    if days == 0 { return "今天过期" }
+    return "\(days) 天后过期"
+}
+
+func expiryStatusColor(daysUntilExpiry days: Int) -> Color {
+    if days < 0 { return .red }
+    if days <= 3 { return .orange }
+    return .green
+}
 
 struct ExpiringFoodSnapshot: Codable, Identifiable, Hashable {
     let id: UUID
@@ -19,10 +32,7 @@ struct ExpiringFoodSnapshot: Codable, Identifiable, Hashable {
     }
 
     var expiryText: String {
-        let daysUntilExpiry = currentDaysUntilExpiry
-        if daysUntilExpiry < 0 { return "已过期 \(-daysUntilExpiry) 天" }
-        if daysUntilExpiry == 0 { return "今天过期" }
-        return "\(daysUntilExpiry) 天后过期"
+        expiryStatusText(daysUntilExpiry: currentDaysUntilExpiry)
     }
 }
 

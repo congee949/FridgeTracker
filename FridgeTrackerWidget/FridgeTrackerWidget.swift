@@ -178,12 +178,12 @@ struct FridgeTrackerWidgetView: View {
         max(entry.items.count - visibleItems.count, 0)
     }
 
-    private var foodHomeURL: URL {
-        URL(string: "fridgetracker://food")!
-    }
+    private static let foodHomeURL = URL(string: "fridgetracker://food")!
+
+    private var foodHomeURL: URL { Self.foodHomeURL }
 
     private func foodDetailURL(for item: ExpiringFoodSnapshot) -> URL {
-        URL(string: "fridgetracker://food/\(item.id.uuidString)")!
+        URL(string: "fridgetracker://food/\(item.id.uuidString)") ?? Self.foodHomeURL
     }
 
     private var listSpacing: CGFloat {
@@ -257,9 +257,7 @@ struct FridgeTrackerWidgetView: View {
     }
 
     private func statusColor(for item: ExpiringFoodSnapshot) -> Color {
-        if item.currentDaysUntilExpiry < 0 { return .red }
-        if item.currentDaysUntilExpiry <= 3 { return .orange }
-        return .green
+        expiryStatusColor(daysUntilExpiry: item.currentDaysUntilExpiry)
     }
 }
 
@@ -279,9 +277,7 @@ struct ExpiringFoodWidgetRow: View {
     }
 
     private var statusColor: Color {
-        if item.currentDaysUntilExpiry < 0 { return .red }
-        if item.currentDaysUntilExpiry <= 3 { return .orange }
-        return .green
+        expiryStatusColor(daysUntilExpiry: item.currentDaysUntilExpiry)
     }
 
     private var iconFont: Font {

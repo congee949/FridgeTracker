@@ -44,3 +44,33 @@
 ## Open Questions
 
 - iCloud sync or backup is still a next phase rather than part of this iteration. The minimum viable path is to decide between SwiftData CloudKit sync for automatic multi-device use and a manual JSON export/import for simple personal backup.
+
+---
+
+# Optimization Pass — 2026-06-01 (H/M/L batches)
+
+Agent-driven code review (two read-only Explore agents) surfaced 16 findings; user approved applying all three batches. Edits applied by four file-disjoint subagents over a fresh git baseline. This section records only material decisions/deviations/tradeoffs, not the per-change diff.
+
+## Design Decisions
+
+- **Shelf-life estimate is frozen at creation, not recomputed daily.** `FoodItem` gains an optional `originalShelfLifeDays` set in `init`. `shelfLifeDaysEstimate` now returns the purchase→expiry span when a purchase date exists, else the frozen `originalShelfLifeDays`, else (legacy rows with neither) the old `max(daysUntilExpiry, 1)` fallback. This stops history templates / replenishment defaults from shrinking by one day each day. Adding an optional SwiftData property is a lightweight automatic migration (no version bump).
+- **Notifications fire at 09:00 local.** The trigger date is built from the year/month/day of `expiryDate − daysBefore` with `hour = 9, minute = 0`, then guarded as future. Previously the trigger inherited `expiryDate`'s 00:00 components and fired at midnight.
+- **Settings changes now reschedule.** `NotificationManager.rescheduleAll(for:)` removes all pending requests and re-schedules from the current item set; `SettingsView` calls it when `notificationsEnabled` / `reminderDaysBefore` change (and requests authorization when enabling).
+- **Deep-link resolution waits for the SwiftData query to load.** `FoodListView` only clears `pendingDetailID` once `allItems` is non-empty, and also re-attempts on `allItems.count` change, fixing the cold-launch-from-widget race where the detail screen silently failed to open.
+- **Expiry text + color are deduplicated through two free functions** (`expiryStatusText(daysUntilExpiry:)`, `expiryStatusColor(daysUntilExpiry:)`) placed in the App/Widget-shared `ExpiringFoodSnapshot.swift`. App rows, detail header, snapshot, and both widget call sites now route through them. App's previous `isExpired`/`isExpiringSoon` color thresholds are identical to `<0 / <=3`, so behavior is unchanged.
+- **Replenishment insert logic is centralized on `ReplenishmentItem`** (`autoReplenishThreshold`, `addIfAbsent(for:in:)`, `autoAddIfNeeded(for:in:)`). `FoodListView`, `FoodDetailView`, and `ContentView.generateFromHistory` all consume these instead of three local copies. The existing threshold semantics (consumed record is inserted before the count check, so the 2nd consume triggers auto-replenish) are preserved intentionally — only the duplication is removed.
+
+## Deviations
+
+- **L1 (split AddFoodView) was scoped to in-file extraction only.** The 677-line file's `body` is broken into private `…Section` computed views inside the same file; `FoodTemplate` / `HistorySuggestionStore` / OCR helper views were NOT moved to new files. Creating new `.swift` files requires hand-editing `project.pbxproj`, which the project history repeatedly flags as risky and which has no behavioral payoff. Type relocation remains available as a separate, opt-in refactor.
+
+## Tradeoffs
+
+- **WidgetDataStore file I/O stays synchronous on `@MainActor`.** Making it `async`/detached was considered (agent finding) but rejected: the payload is ≤50 small structs (sub-millisecond write), callers don't await, and re-ordering the write vs. `reloadAllTimelines()` introduces real concurrency risk for marginal benefit. Only the redundant second sort was removed, and items expired more than 14 days are dropped before the 50-item cap to reduce stale clutter in category widgets.
+- **M3 (template caching) caches the `FoodTemplate.fromHistory(existingItems)` scan in `@State`, recomputed on appear / `existingItems.count` change / overrides change** rather than on every `body` evaluation/keystroke. Edits that change an existing item's fields without changing the count are picked up on the next sheet appearance, not instantly — an acceptable staleness tradeoff for removing the per-keystroke O(n) scan.
+- **L4: the Settings "显示" section** was made honestly informational rather than wiring a new persisted sort setting — list sorting is already user-controlled via the food list's sort menu, so a static "按到期日" row was misleading. No new `@AppStorage` cross-cutting into the view model was introduced.
+
+## Open Questions (this pass)
+
+- Whether to make home sort a real persisted setting (currently per-list, ephemeral) and surface it in Settings — deferred, would touch `FoodListViewModel`.
+- Whether `originalShelfLifeDays` should also update when a user edits `expiryDate` without a purchase date (currently frozen at creation).

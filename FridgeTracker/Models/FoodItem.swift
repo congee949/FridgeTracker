@@ -13,6 +13,7 @@ class FoodItem {
     var quantity: String?
     var notes: String?
     var createdAt: Date
+    var originalShelfLifeDays: Int?
 
     init(name: String, category: FoodCategory, storageZone: StorageZone, customIcon: String? = nil, purchaseDate: Date? = nil, expiryDate: Date, quantity: String? = nil, notes: String? = nil) {
         self.uuid = UUID()
@@ -25,6 +26,12 @@ class FoodItem {
         self.quantity = quantity
         self.notes = notes
         self.createdAt = Date()
+        if purchaseDate == nil {
+            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: expiryDate)).day ?? 1
+            self.originalShelfLifeDays = max(days, 1)
+        } else {
+            self.originalShelfLifeDays = nil
+        }
     }
 
     var daysUntilExpiry: Int {
@@ -41,9 +48,12 @@ class FoodItem {
     }
 
     var shelfLifeDaysEstimate: Int {
-        guard let purchaseDate else { return max(daysUntilExpiry, 1) }
-        let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: purchaseDate), to: Calendar.current.startOfDay(for: expiryDate)).day ?? 1
-        return max(days, 1)
+        if let purchaseDate {
+            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: purchaseDate), to: Calendar.current.startOfDay(for: expiryDate)).day ?? 1
+            return max(days, 1)
+        }
+        if let originalShelfLifeDays { return max(originalShelfLifeDays, 1) }
+        return max(daysUntilExpiry, 1)
     }
 
     var isExpiringSoon: Bool {
@@ -277,4 +287,33 @@ class ReplenishmentItem {
         return icon.isEmpty ? category.icon : icon
     }
 
+}
+
+extension ReplenishmentItem {
+    static let autoReplenishThreshold = 2
+
+    /// 若同名待补货项尚不存在则插入；返回是否新插入。
+    @discardableResult
+    static func addIfAbsent(for item: FoodItem, in context: ModelContext) -> Bool {
+        let name = item.name
+        let descriptor = FetchDescriptor<ReplenishmentItem>(
+            predicate: #Predicate { $0.completedAt == nil && $0.name == name }
+        )
+        let existing = (try? context.fetchCount(descriptor)) ?? 0
+        guard existing == 0 else { return false }
+        context.insert(ReplenishmentItem(item: item))
+        return true
+    }
+
+    /// 当某食材被「吃掉」次数达到阈值时自动加入补货。
+    static func autoAddIfNeeded(for item: FoodItem, in context: ModelContext) {
+        let name = item.name
+        let descriptor = FetchDescriptor<FoodDispositionRecord>(
+            predicate: #Predicate { $0.foodName == name }
+        )
+        let records = (try? context.fetch(descriptor)) ?? []
+        let consumedCount = records.filter { $0.action == .consumed }.count
+        guard consumedCount >= autoReplenishThreshold else { return }
+        addIfAbsent(for: item, in: context)
+    }
 }
