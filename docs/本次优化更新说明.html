@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FridgeTracker 本次优化更新说明</title>
+<style>
+  :root {
+    --bg: #f4f7f9;
+    --surface: #ffffff;
+    --ink: #1c2530;
+    --ink-soft: #5a6675;
+    --line: #e3e9ef;
+    --brand: #2f9bd6;
+    --brand-deep: #1f6f9e;
+    --accent: #e8f4fb;
+    --safe: #2e9e5b;
+    --soon: #e08a1e;
+    --expired: #d8453c;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(28,37,48,.06), 0 8px 24px rgba(28,37,48,.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header.hero {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+    color: #fff; padding: 52px 20px 40px; text-align: center;
+  }
+  header.hero .inner { max-width: 880px; margin: 0 auto; }
+  header.hero .kicker { text-transform: uppercase; letter-spacing: 2px; font-size: .78rem; opacity: .85; margin: 0 0 8px; }
+  header.hero h1 { font-size: 1.95rem; margin: 0 0 10px; }
+  header.hero .tagline { font-size: 1.02rem; opacity: .94; max-width: 600px; margin: 0 auto; }
+  .meta-row { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .meta-row span { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28); border-radius: 999px; padding: 5px 13px; font-size: .85rem; }
+
+  .summary {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 20px 24px; margin: -26px auto 38px; position: relative; z-index: 2;
+  }
+  .summary h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  .summary p { margin: 0; }
+  .summary .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: .92rem; }
+  .summary .legend span { display: inline-flex; align-items: center; gap: 7px; }
+
+  section { margin-bottom: 40px; }
+  h2.sec { font-size: 1.4rem; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .sec-lead { color: var(--ink-soft); margin: 0 0 18px; }
+
+  .item {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 22px; margin-bottom: 14px;
+  }
+  .item.fix { border-left-color: var(--safe); }
+  .item.perf { border-left-color: var(--brand); }
+  .item.qual { border-left-color: var(--ink-soft); }
+  .item h3 { margin: 0 0 10px; font-size: 1.08rem; display: flex; align-items: center; gap: 8px; }
+  .tag { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: .5px; color: #fff; white-space: nowrap; }
+  .t-fix { background: var(--safe); }
+  .t-perf { background: var(--brand); }
+  .t-qual { background: var(--ink-soft); }
+
+  .ba { display: grid; grid-template-columns: 76px 1fr; gap: 8px 12px; align-items: start; font-size: .98rem; }
+  .ba .lbl { font-weight: 600; color: var(--ink-soft); }
+  .ba .before .lbl { color: var(--expired); }
+  .ba .after  .lbl { color: var(--safe); }
+
+  .callout { background: var(--accent); border: 1px solid #cfe6f4; border-radius: var(--radius); padding: 16px 20px; }
+  .callout.warn { background: #fdf3ef; border-color: #f3d7cd; }
+  .callout strong { color: var(--brand-deep); }
+  .callout.warn strong { color: var(--expired); }
+  .callout code, .item code { background: #eef2f5; padding: 1px 6px; border-radius: 5px; font-size: .9em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  ul.compact { margin: 4px 0 0; padding-left: 20px; }
+  ul.compact li { margin-bottom: 6px; }
+
+  footer { text-align: center; color: var(--ink-soft); font-size: .9rem; padding-top: 24px; border-top: 1px solid var(--line); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <p class="kicker">优化更新说明</p>
+    <h1>🧊 FridgeTracker 本次更新做了什么</h1>
+    <p class="tagline">一次基于代码调研的优化:修了几个会影响体验的正确性问题,顺手做了去重、缓存和清理。下面只讲<strong>这次改了什么</strong>。</p>
+    <div class="meta-row">
+      <span>📅 2026-06-01</span>
+      <span>✅ 模拟器构建通过</span>
+      <span>🗂️ 改动 13 个文件</span>
+      <span>↩️ 可一键回滚</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="summary">
+    <h2>一句话总览</h2>
+    <p>把「凌晨推通知、保质期天数越看越少、从小组件偶发打不开详情、相机被拒无提示」等问题修掉,并在不改变你使用习惯的前提下让添加界面更跟手、代码更好维护。</p>
+    <div class="legend">
+      <span><span class="tag t-fix">体验修复</span> 你会直接注意到</span>
+      <span><span class="tag t-perf">性能/稳定</span> 更顺更稳,无需操作</span>
+      <span><span class="tag t-qual">代码质量</span> 对使用无影响</span>
+    </div>
+  </div>
+
+  <!-- 体验修复 -->
+  <section>
+    <h2 class="sec"><span>✅</span> 你会注意到的变化</h2>
+    <p class="sec-lead">这些直接改变了使用体验。</p>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 过期提醒改到早上 9:00</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>提醒在当天<strong>凌晨 0 点</strong>推送(因为保质期日期默认是当天 0 点)。</div>
+        <div class="lbl after">现在</div><div>固定在<strong>本地时间早上 9:00</strong>推送;提醒时间已过去的不再补推。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 改通知设置后立即生效</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>关掉提醒或改提前天数后,<strong>已排队的旧通知不更新</strong>,还会按老规则触发。</div>
+        <div class="lbl after">现在</div><div>一改开关或提前天数,就<strong>按当前库存重新排定全部提醒</strong>。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 保质期估算不再越看越少</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>没填购买日期的食材,历史模板/补货里的「约 N 天」会<strong>每天减 1</strong>,慢慢变得不准。</div>
+        <div class="lbl after">现在</div><div>添加时<strong>冻结一次原始保质期</strong>,之后不再随时间衰减。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 从小组件点食材能可靠打开详情</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>App 冷启动时数据还没加载完,点小组件<strong>偶发打不开</strong>对应食材详情。</div>
+        <div class="lbl after">现在</div><div>等数据加载完成再跳转,deep link 稳定生效。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 相机权限被拒有明确提示</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>「拍包装识别」若相机权限被拒,只是黑屏/闪退式关闭,<strong>不知道为什么</strong>。</div>
+        <div class="lbl after">现在</div><div>弹出提示,可<strong>一键去系统设置</strong>开启,或改用「选包装图」从相册识别。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 小组件不再堆积陈旧过期食材</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>小组件可能显示「已过期 180 天」之类几个月前的食材,挤占有用信息。</div>
+        <div class="lbl after">现在</div><div>过期<strong>超过 14 天</strong>的不再进入小组件。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 设置页「显示」分区改成诚实说明</h3>
+      <div class="ba">
+        <div class="lbl before">之前</div><div>写死「首页排序:按到期日」,看着像设置项,其实排序是在食材页菜单里控制的,有误导。</div>
+        <div class="lbl after">现在</div><div>改成一句说明文字,讲清排序在哪切、小组件标题随分类变化。</div>
+      </div>
+    </div>
+
+    <div class="item fix">
+      <h3><span class="tag t-fix">体验修复</span> 列表支持无障碍朗读</h3>
+      <p style="margin:0;">食材行加了合并的 VoiceOver 标签(名称、分类、到期状态一起读),图标 emoji 不再被单独念出。</p>
+    </div>
+  </section>
+
+  <!-- 性能/稳定 -->
+  <section>
+    <h2 class="sec"><span>⚙️</span> 性能与稳定性(无需操作)</h2>
+    <p class="sec-lead">看不见,但更顺、更稳。</p>
+
+    <div class="item perf">
+      <h3><span class="tag t-perf">性能/稳定</span> 添加界面更跟手</h3>
+      <p style="margin:0;">「最近添加」「同名复用」的历史建议<strong>不再每次按键都全量扫描历史</strong>,改为缓存,只在数据真正变化时重算。历史食材多时输入更流畅。</p>
+    </div>
+
+    <div class="item perf">
+      <h3><span class="tag t-perf">性能/稳定</span> 降低崩溃风险</h3>
+      <p style="margin:0;">去掉了多处对日期、URL 的<strong>强制解包</strong>(<code>!</code>),异常输入时安全回退而不是崩溃。</p>
+    </div>
+
+    <div class="item perf">
+      <h3><span class="tag t-perf">性能/稳定</span> OCR 与小组件写入更省</h3>
+      <ul class="compact">
+        <li>包装识别的正则<strong>预编译一次</strong>,不再每次识别重新编译。</li>
+        <li>小组件数据写入去掉了一次<strong>冗余排序</strong>。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 代码质量 -->
+  <section>
+    <h2 class="sec"><span>🧹</span> 代码质量(对使用无影响)</h2>
+    <p class="sec-lead">只为后续好维护,行为不变。</p>
+
+    <div class="item qual">
+      <h3><span class="tag t-qual">代码质量</span> 重复逻辑收敛到一处</h3>
+      <ul class="compact">
+        <li>到期文案与颜色(绿/橙/红)原本在行视图、详情页、小组件各写一份 → 合并为 App 与 Widget <strong>共享的两个函数</strong>。</li>
+        <li>「自动加入补货」「补货去重插入」逻辑原本在列表页和详情页各一份 → 收敛到 <code>ReplenishmentItem</code> 的静态方法,阈值常量也只剩一处。</li>
+        <li>补货查询从「全量取出再内存过滤」改为 <strong>SwiftData 谓词</strong>。</li>
+      </ul>
+    </div>
+
+    <div class="item qual">
+      <h3><span class="tag t-qual">代码质量</span> 大文件瘦身 + 清理废弃代码</h3>
+      <ul class="compact">
+        <li>677 行的添加界面把 <code>body</code> 拆成 6 个分区属性,编译更快、更好读(类型未跨文件搬动,避免工程引用风险)。</li>
+        <li>删除了早已弃用的折叠标签栏滚动监听残留代码。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 验证与回滚 -->
+  <section>
+    <h2 class="sec"><span>🔧</span> 验证与回滚</h2>
+    <div class="callout">
+      <ul class="compact" style="margin-top:0;">
+        <li><strong>构建验证:</strong>用 iPhone 17 模拟器编译 App + 小组件,<strong>BUILD SUCCEEDED</strong>。</li>
+        <li><strong>版本控制:</strong>本次先建了 git 仓库,三个提交 <code>baseline → optimize → docs</code>。</li>
+        <li><strong>一键回滚到优化前:</strong> <code>git reset --hard 6b56fe8</code></li>
+        <li><strong>决策记录:</strong>关键取舍写在仓库根的 <code>implementation-notes.md</code>。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 注意事项 -->
+  <section>
+    <h2 class="sec"><span>⚠️</span> 升级注意</h2>
+    <div class="callout warn">
+      为修复「保质期越看越少」,给数据模型新增了一个字段 <code>originalShelfLifeDays</code>。这属于 SwiftData 的<strong>轻量自动迁移</strong>:已装旧版、库存里已有的食材,该字段为空,会自动回退到旧算法,不会丢数据。<strong>首次在真机升级后,建议确认一次库存数据完好。</strong>
+    </div>
+  </section>
+
+  <footer>
+    FridgeTracker 优化更新说明 · 2026-06-01
+  </footer>
+
+</div>
+</body>
+</html>
