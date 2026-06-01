@@ -1,0 +1,520 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+			A1C0AA000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0AA000000000000000002 /* Assets.xcassets */; };
+		09984C82F358FA0058A871F8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8F4811CE064772C84D408F /* SettingsView.swift */; };
+		13F1C9359E7DBABB3BD76D5D /* AddFoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0512BC95544214F676F1398F /* AddFoodView.swift */; };
+		2176ED045800908B455E08FD /* FoodDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD55CECEFC07E4F4116BE3D /* FoodDetailView.swift */; };
+		2E607A8E98713A78501EB892 /* FoodRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC2F65D816A8741FFD285C6 /* FoodRowView.swift */; };
+		732B6779B2BD0DD14F1F3E57 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A53310F77E89B37AB314762 /* NotificationManager.swift */; };
+		9E3D25F33601468E50071737 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D807BBA03CF83A3B5F2B7B /* ContentView.swift */; };
+		B2228E48308C93B9034115AF /* FoodItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1573C7677BB4260AD6179A6 /* FoodItem.swift */; };
+		BB229D8169BBC5714B43F22A /* FoodListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9293497F26195E28A829310C /* FoodListViewModel.swift */; };
+		DC249637CA29AFAF4B62268E /* FridgeTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2968A8739AF213C8B19AB4 /* FridgeTrackerApp.swift */; };
+		E00000000000000000000001 /* ExpiringFoodSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000002 /* ExpiringFoodSnapshot.swift */; };
+		E00000000000000000000003 /* WidgetDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000004 /* WidgetDataStore.swift */; };
+		E00000000000000000000005 /* FridgeTrackerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000006 /* FridgeTrackerWidget.swift */; };
+		E00000000000000000000007 /* FridgeTrackerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000008 /* FridgeTrackerWidgetBundle.swift */; };
+		E00000000000000000000009 /* ExpiringFoodSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000002 /* ExpiringFoodSnapshot.swift */; };
+		E0000000000000000000000A /* FridgeTrackerWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = E0000000000000000000000B /* FridgeTrackerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E984AD78965102F81BD3043C /* FoodListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0A500A2D9B1905D5646B0 /* FoodListView.swift */; };
+		F00000000000000000000001 /* PackagingTextParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000002 /* PackagingTextParser.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E00000000000000000000017 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E00000000000000000000015;
+			remoteInfo = FridgeTrackerWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E0000000000000000000000F /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E0000000000000000000000A /* FridgeTrackerWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+			A1C0AA000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0512BC95544214F676F1398F /* AddFoodView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddFoodView.swift; sourceTree = "<group>"; };
+		1A8F4811CE064772C84D408F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		42D807BBA03CF83A3B5F2B7B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		4CC0A500A2D9B1905D5646B0 /* FoodListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodListView.swift; sourceTree = "<group>"; };
+		7D2968A8739AF213C8B19AB4 /* FridgeTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeTrackerApp.swift; sourceTree = "<group>"; };
+		8A53310F77E89B37AB314762 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		9293497F26195E28A829310C /* FoodListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodListViewModel.swift; sourceTree = "<group>"; };
+		A97C29AD63741CF438998CE6 /* FridgeTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FridgeTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BFC2F65D816A8741FFD285C6 /* FoodRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodRowView.swift; sourceTree = "<group>"; };
+		CCD55CECEFC07E4F4116BE3D /* FoodDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodDetailView.swift; sourceTree = "<group>"; };
+		E00000000000000000000002 /* ExpiringFoodSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpiringFoodSnapshot.swift; sourceTree = "<group>"; };
+		E00000000000000000000004 /* WidgetDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataStore.swift; sourceTree = "<group>"; };
+		E00000000000000000000006 /* FridgeTrackerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeTrackerWidget.swift; sourceTree = "<group>"; };
+		E00000000000000000000008 /* FridgeTrackerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeTrackerWidgetBundle.swift; sourceTree = "<group>"; };
+		E0000000000000000000000B /* FridgeTrackerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FridgeTrackerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E0000000000000000000000D /* FridgeTrackerWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FridgeTrackerWidget.entitlements; sourceTree = "<group>"; };
+		E0000000000000000000000E /* FridgeTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FridgeTracker.entitlements; sourceTree = "<group>"; };
+		F00000000000000000000002 /* PackagingTextParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingTextParser.swift; sourceTree = "<group>"; };
+		F1573C7677BB4260AD6179A6 /* FoodItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodItem.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6DB04654966809A36F783873 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E00000000000000000000010 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		32120412CDF92CE44C01AF8D /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				8A53310F77E89B37AB314762 /* NotificationManager.swift */,
+				E00000000000000000000002 /* ExpiringFoodSnapshot.swift */,
+				E00000000000000000000004 /* WidgetDataStore.swift */,
+				F00000000000000000000002 /* PackagingTextParser.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		4F6F5CC3FCCF73F75AE9CCF4 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5928955287B8089ED2177128 = {
+			isa = PBXGroup;
+			children = (
+				F2AB5FB218DA8B84623F4557 /* FridgeTracker */,
+				E00000000000000000000014 /* FridgeTrackerWidget */,
+				86024CAD1E83101D97359D73 /* Products */,
+				4F6F5CC3FCCF73F75AE9CCF4 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		86024CAD1E83101D97359D73 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A97C29AD63741CF438998CE6 /* FridgeTracker.app */,
+				E0000000000000000000000B /* FridgeTrackerWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9F58BDF7D4F04F6C4DC3CB6C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				0512BC95544214F676F1398F /* AddFoodView.swift */,
+				42D807BBA03CF83A3B5F2B7B /* ContentView.swift */,
+				CCD55CECEFC07E4F4116BE3D /* FoodDetailView.swift */,
+				4CC0A500A2D9B1905D5646B0 /* FoodListView.swift */,
+				BFC2F65D816A8741FFD285C6 /* FoodRowView.swift */,
+				1A8F4811CE064772C84D408F /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AB8D408CB1881C666AAC0831 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7D2968A8739AF213C8B19AB4 /* FridgeTrackerApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		C9E04F99D8E7C9D4D391AEF8 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F1573C7677BB4260AD6179A6 /* FoodItem.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		E00000000000000000000014 /* FridgeTrackerWidget */ = {
+			isa = PBXGroup;
+			children = (
+				E00000000000000000000006 /* FridgeTrackerWidget.swift */,
+				E00000000000000000000008 /* FridgeTrackerWidgetBundle.swift */,
+				E0000000000000000000000C /* Info.plist */,
+				E0000000000000000000000D /* FridgeTrackerWidget.entitlements */,
+			);
+			path = FridgeTrackerWidget;
+			sourceTree = "<group>";
+		};
+		EE1E649591DBDF61DE2E4396 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				9293497F26195E28A829310C /* FoodListViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		F2AB5FB218DA8B84623F4557 /* FridgeTracker */ = {
+			isa = PBXGroup;
+			children = (
+				E0000000000000000000000E /* FridgeTracker.entitlements */,
+				A1C0AA000000000000000002 /* Assets.xcassets */,
+				AB8D408CB1881C666AAC0831 /* App */,
+				C9E04F99D8E7C9D4D391AEF8 /* Models */,
+				EE1E649591DBDF61DE2E4396 /* ViewModels */,
+				32120412CDF92CE44C01AF8D /* Utilities */,
+				9F58BDF7D4F04F6C4DC3CB6C /* Views */,
+			);
+			path = FridgeTracker;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6772EC0E5D0CA05E04DDDB49 /* FridgeTracker */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B8C0C64CF739C292C964144F /* Build configuration list for PBXNativeTarget "FridgeTracker" */;
+			buildPhases = (
+				7B1AB24959979FF757979CE2 /* Sources */,
+				6DB04654966809A36F783873 /* Frameworks */,
+				BC01316BBCA63BD9F9542A7E /* Resources */,
+				E0000000000000000000000F /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E00000000000000000000013 /* PBXTargetDependency */,
+			);
+			name = FridgeTracker;
+			productName = FridgeTracker;
+			productReference = A97C29AD63741CF438998CE6 /* FridgeTracker.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E00000000000000000000015 /* FridgeTrackerWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E00000000000000000000016 /* Build configuration list for PBXNativeTarget "FridgeTrackerWidget" */;
+			buildPhases = (
+				E00000000000000000000012 /* Sources */,
+				E00000000000000000000010 /* Frameworks */,
+				E00000000000000000000011 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FridgeTrackerWidget;
+			productName = FridgeTrackerWidget;
+			productReference = E0000000000000000000000B /* FridgeTrackerWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+			};
+			buildConfigurationList = 9204FD22A3021590D1C529EB /* Build configuration list for PBXProject "FridgeTracker" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 5928955287B8089ED2177128;
+			productRefGroup = 86024CAD1E83101D97359D73 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6772EC0E5D0CA05E04DDDB49 /* FridgeTracker */,
+				E00000000000000000000015 /* FridgeTrackerWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BC01316BBCA63BD9F9542A7E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C0AA000000000000000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E00000000000000000000011 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7B1AB24959979FF757979CE2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DC249637CA29AFAF4B62268E /* FridgeTrackerApp.swift in Sources */,
+				B2228E48308C93B9034115AF /* FoodItem.swift in Sources */,
+				732B6779B2BD0DD14F1F3E57 /* NotificationManager.swift in Sources */,
+				BB229D8169BBC5714B43F22A /* FoodListViewModel.swift in Sources */,
+				13F1C9359E7DBABB3BD76D5D /* AddFoodView.swift in Sources */,
+				9E3D25F33601468E50071737 /* ContentView.swift in Sources */,
+				2176ED045800908B455E08FD /* FoodDetailView.swift in Sources */,
+				E984AD78965102F81BD3043C /* FoodListView.swift in Sources */,
+				2E607A8E98713A78501EB892 /* FoodRowView.swift in Sources */,
+				09984C82F358FA0058A871F8 /* SettingsView.swift in Sources */,
+				E00000000000000000000001 /* ExpiringFoodSnapshot.swift in Sources */,
+				E00000000000000000000003 /* WidgetDataStore.swift in Sources */,
+				F00000000000000000000001 /* PackagingTextParser.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E00000000000000000000012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E00000000000000000000005 /* FridgeTrackerWidget.swift in Sources */,
+				E00000000000000000000007 /* FridgeTrackerWidgetBundle.swift in Sources */,
+				E00000000000000000000009 /* ExpiringFoodSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E00000000000000000000013 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E00000000000000000000015 /* FridgeTrackerWidget */;
+			targetProxy = E00000000000000000000017 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3258DF972478A8F7CCBC60BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = FridgeTracker/FridgeTracker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FridgeTracker/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用相机拍摄包装标签以识别食材信息";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问相册以选择包装标签图片";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		4A3C647615E4BC4E985A5951 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A4809E0E4FFD3F9578CD5486 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = FridgeTracker/FridgeTracker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FridgeTracker/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用相机拍摄包装标签以识别食材信息";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问相册以选择包装标签图片";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AD6D2BD8FC01D8BDFC72C453 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		E00000000000000000000018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = FridgeTrackerWidget/FridgeTrackerWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FridgeTrackerWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker.FridgeTrackerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E00000000000000000000019 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = FridgeTrackerWidget/FridgeTrackerWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FridgeTrackerWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker.FridgeTrackerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9204FD22A3021590D1C529EB /* Build configuration list for PBXProject "FridgeTracker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD6D2BD8FC01D8BDFC72C453 /* Debug */,
+				4A3C647615E4BC4E985A5951 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B8C0C64CF739C292C964144F /* Build configuration list for PBXNativeTarget "FridgeTracker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A4809E0E4FFD3F9578CD5486 /* Debug */,
+				3258DF972478A8F7CCBC60BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E00000000000000000000016 /* Build configuration list for PBXNativeTarget "FridgeTrackerWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E00000000000000000000018 /* Debug */,
+				E00000000000000000000019 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+}

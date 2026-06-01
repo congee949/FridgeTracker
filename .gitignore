@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Xcode build / derived data
+DerivedData*/
+.derivedData*/
+build/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Test / build artifacts
+*.xcresult/
+*.log
+
+# Tooling
+.superpowers/
+
+# Verification screenshots & generated source images (artifacts, not source)
+verify-*.png
+device-verify-*.png
+fridge-tracker-*.png
+fridgetracker-*.png
+history-*.png
+recent-*.png
+*-source-image-*.png
+2026-*.png
