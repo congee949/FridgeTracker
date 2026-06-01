@@ -74,3 +74,13 @@ Agent-driven code review (two read-only Explore agents) surfaced 16 findings; us
 
 - Whether to make home sort a real persisted setting (currently per-list, ephemeral) and surface it in Settings — deferred, would touch `FoodListViewModel`.
 - Whether `originalShelfLifeDays` should also update when a user edits `expiryDate` without a purchase date (currently frozen at creation).
+
+---
+
+# Feature — 2026-06-01: "xx 天后过期" entry in AddFoodView
+
+## Design Decisions
+
+- The 日期 section gains a `Stepper` that sets expiry by day count, alongside the existing date picker. It is wired through a computed `Binding<Int>` (`expiryDaysBinding`) over the single source of truth `expiryDate` — no extra `@State`, so the two controls stay in two-way sync without onChange feedback loops.
+- The day count's reference point is adaptive: it counts from the purchase date when 记录购买日期 is on and set, otherwise from today. The label reflects this — "保质期 N 天" (from purchase) vs "还有 N 天过期" (from today) — so the number's meaning is always explicit. Toggling the purchase date recomputes the displayed count against the new base while keeping `expiryDate` fixed.
+- Range capped at 0...3650 days (10 years), enough for any food shelf life; the binding clamps negatives to 0.

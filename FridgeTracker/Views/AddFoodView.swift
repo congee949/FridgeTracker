@@ -221,9 +221,42 @@ struct AddFoodView: View {
         }
     }
 
+    // 「xx 天后过期」入口：默认从今天算，记录购买日期时从购买日算。
+    private var baseDateForExpiryDays: Date {
+        let base = (hasPurchaseDate ? purchaseDate : nil) ?? Date()
+        return Calendar.current.startOfDay(for: base)
+    }
+
+    private var expiryDaysBinding: Binding<Int> {
+        Binding(
+            get: {
+                let days = Calendar.current.dateComponents(
+                    [.day],
+                    from: baseDateForExpiryDays,
+                    to: Calendar.current.startOfDay(for: expiryDate)
+                ).day ?? 0
+                return max(0, days)
+            },
+            set: { newValue in
+                if let newDate = Calendar.current.date(byAdding: .day, value: max(0, newValue), to: baseDateForExpiryDays) {
+                    expiryDate = newDate
+                }
+            }
+        )
+    }
+
+    private var expiryDaysDescription: String {
+        let days = expiryDaysBinding.wrappedValue
+        return hasPurchaseDate ? "保质期 \(days) 天" : "还有 \(days) 天过期"
+    }
+
     private var dateSection: some View {
         Section("日期") {
             DatePicker("保质期", selection: $expiryDate, displayedComponents: .date)
+
+            Stepper(value: expiryDaysBinding, in: 0...3650) {
+                Text(expiryDaysDescription)
+            }
 
             Toggle("记录购买日期", isOn: $hasPurchaseDate)
             if hasPurchaseDate {
