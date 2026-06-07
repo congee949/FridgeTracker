@@ -84,3 +84,32 @@ Agent-driven code review (two read-only Explore agents) surfaced 16 findings; us
 - The 日期 section gains a `Stepper` that sets expiry by day count, alongside the existing date picker. It is wired through a computed `Binding<Int>` (`expiryDaysBinding`) over the single source of truth `expiryDate` — no extra `@State`, so the two controls stay in two-way sync without onChange feedback loops.
 - The day count's reference point is adaptive: it counts from the purchase date when 记录购买日期 is on and set, otherwise from today. The label reflects this — "保质期 N 天" (from purchase) vs "还有 N 天过期" (from today) — so the number's meaning is always explicit. Toggling the purchase date recomputes the displayed count against the new base while keeping `expiryDate` fixed.
 - Range capped at 0...3650 days (10 years), enough for any food shelf life; the binding clamps negatives to 0.
+
+---
+
+# Structure Refactor — 2026-06-07 (H/M priority from README audit)
+
+Executed the high/medium-priority items from the README folder-structure audit. This **completes the file-level type relocation explicitly deferred in the 2026-06-01 pass** — see "L1 … scoped to in-file extraction only" above, which judged that relocating `FoodTemplate` / `HistorySuggestionStore` / OCR helper views to new files was risky pbxproj surgery with no behavioral payoff and should be a separate opt-in refactor. This is that refactor, now done with per-step build verification. Records only material decisions/deviations/tradeoffs, not the per-change diff.
+
+## Design Decisions
+
+- **Disk cleanup and version control are separate problems.** ~4.8 GB of build artifacts (18 stray `DerivedData*` dirs + `build/` + 4 `.xcresult` + 10 logs + 2 `.DS_Store`) were already gitignored — never a repo problem, only disk/navigation noise. Removed via `git clean -fdX` (4.8 GB → 2.5 MB). All builds (baseline + per-step) use Xcode's **default** DerivedData path (`~/Library/...`), never a workspace-local path, so cleanup never invalidates build caches.
+- **pbxproj edits are scripted, not hand-typed.** A Python helper inserts each new file into all four required sections (PBXBuildFile, PBXFileReference, group children, app Sources phase) with auto-generated, length-asserted `FACE…` 24-hex IDs, eliminating the hand-counting error that makes manual pbxproj editing fragile. File slicing is content-anchored (locate by `struct X` line prefix), not absolute line numbers, and aborts if an anchor is missing.
+- **Per-step build verification** (per user choice): #4 AddFoodView, #5 ContentView, #6+#7 SettingsView/snapshot each ran `xcodebuild … BUILD SUCCEEDED` before the next step; final build confirmed app + widget.
+
+## Deviations
+
+- **`HistorySuggestionStore` + `HistorySuggestionOverride` → existing `Utilities/` group, not a new `Stores/` group.** README offered "Stores/ or Utilities/"; Utilities avoids creating a new PBXGroup (extra surgery) and already houses store-like `WidgetDataStore`.
+- **`RecentTemplateChip` stayed in `AddFoodView.swift`.** A 21-line chip used only by the add form; README only required moving the heterogeneous types (model / store / UIKit bridges). AddFoodView still dropped 776 → 501 lines.
+- **`ExpiringFoodSnapshot.swift` was annotated, not moved to a `Shared/` directory.** With only one cross-target file, a header comment documenting dual-target membership achieves "name it as shared" at zero pbxproj-path risk. (README presented both; annotation was the lower-risk option.)
+- **`implementation-notes.md` stays at repo root** (not moved into `docs/`), per the project's global SOP; the rest of the docs were consolidated into a single `docs/` tree (`design/`, `plans/`, `release-notes/`) with a `docs/README.md` map.
+- **`FridgeTrackerUITests/`** (empty, no target, untracked) was `rmdir`-removed rather than backfilled with a test target, since the project has no tests and none were requested.
+
+## Tradeoffs
+
+- **No new test target.** Backfilling a UI Testing bundle is out of scope for a structure cleanup and would add pbxproj surgery for code the user didn't ask for; the empty dir was simply deleted.
+- **README's directory tree / assessment were rewritten to the post-optimization state**, with the original problems kept as a resolved record (✅ markers) so the document doesn't silently erase the audit it came from.
+
+## Result
+
+7 new source files (FoodTemplate, HistorySuggestionStore, ImagePickers, PackagingOCRConfirmationView, ReplenishmentListView, HistoryView, FoodBackup); 3 large views slimmed (776→501 / 329→86 / 349→283); docs consolidated; stray pbxproj backup untracked; empty UITests dir removed; workspace 4.8 GB → 2.5 MB. Final `xcodebuild`: **BUILD SUCCEEDED** (app + widget).

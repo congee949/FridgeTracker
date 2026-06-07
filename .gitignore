@@ -13,6 +13,11 @@ xcuserdata/
 *.xcresult/
 *.log
 
+# Editor / tool backups（防止类似已移除的 project.pbxproj.before-* 备份文件再次混入）
+*.before-*
+*.bak
+*.orig
+
 # Tooling
 .superpowers/
 

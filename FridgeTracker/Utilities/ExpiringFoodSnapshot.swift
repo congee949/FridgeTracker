@@ -1,6 +1,11 @@
 import Foundation
 import SwiftUI
 
+// ⚠️ 跨 target 共享契约 —— 本文件同时编译进 FridgeTracker(app) 与 FridgeTrackerWidget(extension)
+// 两个 target（project.pbxproj 中有两条 PBXBuildFile 指向同一个 fileRef）。
+// 它承载 app ↔ widget 的全部共享约定：ExpiringFoodSnapshot 数据结构、App Group 标识、
+// 快照文件 URL、JSON 编解码器，以及 expiryStatusText / expiryStatusColor 展示辅助。
+// 修改时请勿移除任一 target 的 membership，否则 widget 或 app 会因找不到符号而编译失败。
 let fridgeTrackerAppGroupIdentifier = "group.com.congee.FridgeTracker"
 let expiringFoodsSnapshotFileName = "expiring-foods.json"
 

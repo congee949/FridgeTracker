@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FACE0000000000000000000E /* FoodBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE0000000000000000000D /* FoodBackup.swift */; };
+		FACE0000000000000000000C /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE0000000000000000000B /* HistoryView.swift */; };
+		FACE0000000000000000000A /* ReplenishmentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000009 /* ReplenishmentListView.swift */; };
+		FACE00000000000000000008 /* PackagingOCRConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */; };
+		FACE00000000000000000006 /* ImagePickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000005 /* ImagePickers.swift */; };
+		FACE00000000000000000004 /* HistorySuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000003 /* HistorySuggestionStore.swift */; };
+		FACE00000000000000000002 /* FoodTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000001 /* FoodTemplate.swift */; };
 			A1C0AA000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0AA000000000000000002 /* Assets.xcassets */; };
 		09984C82F358FA0058A871F8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8F4811CE064772C84D408F /* SettingsView.swift */; };
 		13F1C9359E7DBABB3BD76D5D /* AddFoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0512BC95544214F676F1398F /* AddFoodView.swift */; };
@@ -52,6 +59,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FACE0000000000000000000D /* FoodBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodBackup.swift; sourceTree = "<group>"; };
+		FACE0000000000000000000B /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		FACE00000000000000000009 /* ReplenishmentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplenishmentListView.swift; sourceTree = "<group>"; };
+		FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingOCRConfirmationView.swift; sourceTree = "<group>"; };
+		FACE00000000000000000005 /* ImagePickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickers.swift; sourceTree = "<group>"; };
+		FACE00000000000000000003 /* HistorySuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySuggestionStore.swift; sourceTree = "<group>"; };
+		FACE00000000000000000001 /* FoodTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodTemplate.swift; sourceTree = "<group>"; };
 			A1C0AA000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0512BC95544214F676F1398F /* AddFoodView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddFoodView.swift; sourceTree = "<group>"; };
 		1A8F4811CE064772C84D408F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -96,6 +110,7 @@
 		32120412CDF92CE44C01AF8D /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				FACE00000000000000000003 /* HistorySuggestionStore.swift */,
 				8A53310F77E89B37AB314762 /* NotificationManager.swift */,
 				E00000000000000000000002 /* ExpiringFoodSnapshot.swift */,
 				E00000000000000000000004 /* WidgetDataStore.swift */,
@@ -133,6 +148,10 @@
 		9F58BDF7D4F04F6C4DC3CB6C /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				FACE0000000000000000000B /* HistoryView.swift */,
+				FACE00000000000000000009 /* ReplenishmentListView.swift */,
+				FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */,
+				FACE00000000000000000005 /* ImagePickers.swift */,
 				0512BC95544214F676F1398F /* AddFoodView.swift */,
 				42D807BBA03CF83A3B5F2B7B /* ContentView.swift */,
 				CCD55CECEFC07E4F4116BE3D /* FoodDetailView.swift */,
@@ -154,6 +173,8 @@
 		C9E04F99D8E7C9D4D391AEF8 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				FACE0000000000000000000D /* FoodBackup.swift */,
+				FACE00000000000000000001 /* FoodTemplate.swift */,
 				F1573C7677BB4260AD6179A6 /* FoodItem.swift */,
 			);
 			path = Models;
@@ -280,6 +301,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FACE0000000000000000000E /* FoodBackup.swift in Sources */,
+				FACE0000000000000000000C /* HistoryView.swift in Sources */,
+				FACE0000000000000000000A /* ReplenishmentListView.swift in Sources */,
+				FACE00000000000000000008 /* PackagingOCRConfirmationView.swift in Sources */,
+				FACE00000000000000000006 /* ImagePickers.swift in Sources */,
+				FACE00000000000000000004 /* HistorySuggestionStore.swift in Sources */,
+				FACE00000000000000000002 /* FoodTemplate.swift in Sources */,
 				DC249637CA29AFAF4B62268E /* FridgeTrackerApp.swift in Sources */,
 				B2228E48308C93B9034115AF /* FoodItem.swift in Sources */,
 				732B6779B2BD0DD14F1F3E57 /* NotificationManager.swift in Sources */,
