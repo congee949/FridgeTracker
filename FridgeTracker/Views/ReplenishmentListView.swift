@@ -62,6 +62,13 @@ struct ReplenishmentListView: View {
                             }
                         }
                     }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            modelContext.delete(item)
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
+                    }
                 }
                 .listStyle(.plain)
             }
@@ -69,6 +76,8 @@ struct ReplenishmentListView: View {
             .sheet(item: $selectedItem) { item in
                 AddFoodView(storageZone: item.storageZone, template: item.template) {
                     item.completedAt = Date()
+                    // AddFoodView 提供 onSave 时不再自行 dismiss，必须在这里置空以关闭 sheet
+                    selectedItem = nil
                 }
             }
             .overlay {

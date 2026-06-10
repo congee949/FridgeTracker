@@ -9,11 +9,27 @@ struct FoodDetailView: View {
     @State private var pendingAction: DetailAction?
     @State private var showDiscardReplenishPrompt = false
     @State private var statusMessage: String?
+    @State private var statusMessageToken = UUID()
 
     private var expiryColor: Color { expiryStatusColor(daysUntilExpiry: item.daysUntilExpiry) }
     private var expiryText: String { expiryStatusText(daysUntilExpiry: item.daysUntilExpiry) }
 
+    /// 删除后 dismiss 动画期间视图仍可能重新求值；访问已销毁的 @Model 属性会崩溃，先用空视图顶住。
+    private var isItemAlive: Bool {
+        item.modelContext != nil && !item.isDeleted
+    }
+
     var body: some View {
+        Group {
+            if isItemAlive {
+                detailContent
+            } else {
+                Color.clear
+            }
+        }
+    }
+
+    private var detailContent: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // Header
@@ -153,8 +169,18 @@ struct FoodDetailView: View {
 
     private func addToReplenishment() {
         let inserted = ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
-        statusMessage = inserted ? "已加入补货清单" : "已在补货清单中"
+        showStatus(inserted ? "已加入补货清单" : "已在补货清单中")
         WidgetDataStore.refresh(using: modelContext)
+    }
+
+    private func showStatus(_ message: String) {
+        statusMessage = message
+        let token = UUID()
+        statusMessageToken = token
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            guard statusMessageToken == token else { return }
+            withAnimation { statusMessage = nil }
+        }
     }
 
     private func performPendingAction() {
@@ -201,9 +227,9 @@ struct FoodDetailView: View {
         NotificationManager.shared.scheduleNotification(for: item)
         WidgetDataStore.refresh(using: modelContext)
         if let quantity = item.quantityDisplayText {
-            statusMessage = "\(statusPrefix)，剩余 \(quantity)"
+            showStatus("\(statusPrefix)，剩余 \(quantity)")
         } else {
-            statusMessage = statusPrefix
+            showStatus(statusPrefix)
         }
     }
 }

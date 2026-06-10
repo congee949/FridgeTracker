@@ -41,6 +41,7 @@ enum AppRoute: Hashable {
 }
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: FridgeTab = .food
     @State private var pendingFoodDetailID: UUID?
 
@@ -51,6 +52,13 @@ struct ContentView: View {
                 if case let .foodDetail(id) = AppRoute(url: url) {
                     pendingFoodDetailID = id
                 }
+            }
+            .task {
+                // 启动时刷新小组件快照，并补排所有提醒（覆盖导入、跨设备迁移、授权后追加等场景）
+                WidgetDataStore.refresh(using: modelContext)
+                guard await NotificationManager.shared.isAuthorized() else { return }
+                let items = (try? modelContext.fetch(FetchDescriptor<FoodItem>())) ?? []
+                await NotificationManager.shared.rescheduleAll(for: items)
             }
     }
 

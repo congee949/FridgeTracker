@@ -1,7 +1,8 @@
 import Foundation
 
 struct FoodTemplate: Identifiable {
-    let id = UUID()
+    // 以名称为身份，避免每次重新生成模板时 List/ForEach 全量刷新
+    var id: String { normalizedName }
     let name: String
     let category: FoodCategory
     let storageZone: StorageZone
@@ -42,23 +43,48 @@ struct FoodTemplate: Identifiable {
         FoodTemplate(name: "速冻饺子", category: .frozen, storageZone: .freezer, customIcon: "🥟", defaultShelfLifeDays: 60, quantity: nil, notes: nil, purchaseDate: nil)
     ]
 
-    static func fromHistory(_ items: [FoodItem]) -> [FoodTemplate] {
-        var seen = Set<String>()
-        return items.compactMap { item in
-            let key = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, !seen.contains(key) else { return nil }
-            seen.insert(key)
-
-            return FoodTemplate(
-                name: item.name,
-                category: item.category,
-                storageZone: item.storageZone,
-                customIcon: item.customIcon,
-                defaultShelfLifeDays: item.shelfLifeDaysEstimate,
-                quantity: item.quantity,
-                notes: item.notes,
-                purchaseDate: item.purchaseDate
+    /// 聚合当前库存与吃掉/扔掉记录生成历史模板：同名取时间最新的一条，
+    /// 因此吃完下架的食材依然保留在历史建议里，且结果与调用方的查询排序无关。
+    static func fromHistory(_ items: [FoodItem], records: [FoodDispositionRecord] = []) -> [FoodTemplate] {
+        var candidates: [(template: FoodTemplate, date: Date)] = items.map { item in
+            (
+                FoodTemplate(
+                    name: item.name,
+                    category: item.category,
+                    storageZone: item.storageZone,
+                    customIcon: item.customIcon,
+                    defaultShelfLifeDays: item.shelfLifeDaysEstimate,
+                    quantity: item.quantity,
+                    notes: item.notes,
+                    purchaseDate: item.purchaseDate
+                ),
+                item.createdAt
             )
         }
+        candidates.append(contentsOf: records.map { record in
+            (
+                FoodTemplate(
+                    name: record.foodName,
+                    category: record.category,
+                    storageZone: record.storageZone,
+                    customIcon: record.customIcon,
+                    defaultShelfLifeDays: max(record.shelfLifeDaysEstimate, 1),
+                    quantity: record.quantity,
+                    notes: nil,
+                    purchaseDate: record.purchaseDate
+                ),
+                record.createdAt
+            )
+        })
+
+        var seen = Set<String>()
+        return candidates
+            .sorted { $0.date > $1.date }
+            .compactMap { candidate in
+                let key = candidate.template.normalizedName
+                guard !key.isEmpty, !seen.contains(key) else { return nil }
+                seen.insert(key)
+                return candidate.template
+            }
     }
 }

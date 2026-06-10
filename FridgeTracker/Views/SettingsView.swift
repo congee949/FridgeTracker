@@ -31,7 +31,7 @@ struct SettingsView: View {
                         LabeledContent("肉类 / 海鲜提前提醒", value: "2 天")
                         LabeledContent("冷冻食品提前提醒", value: "7 天")
 
-                        Text("分类默认会让肉类/海鲜提前 2 天、冷冻食品提前 7 天，其他食材提前 1 天提醒；已过期或提醒时间已错过的食材不会继续创建新通知。")
+                        Text("分类默认会让肉类/海鲜提前 2 天、冷冻食品提前 7 天，其他食材提前 1 天提醒；到期日当天 9 点会再提醒一次。新添加的食材如果已错过上述时间但还没过期，会立即补一条提醒；已过期的食材不再创建新通知。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -47,13 +47,15 @@ struct SettingsView: View {
 
                 Section("建议") {
                     NavigationLink("历史建议管理") {
-                        HistorySuggestionManagementView(items: allItems)
+                        HistorySuggestionManagementView()
                     }
                 }
 
                 Section("数据") {
                     Button("导出数据") {
-                        exportDocument = FoodBackupDocument(items: allItems)
+                        let records = (try? modelContext.fetch(FetchDescriptor<FoodDispositionRecord>())) ?? []
+                        let replenishments = (try? modelContext.fetch(FetchDescriptor<ReplenishmentItem>())) ?? []
+                        exportDocument = FoodBackupDocument(items: allItems, records: records, replenishments: replenishments)
                     }
                     Button("导入数据") {
                         isImporting = true
@@ -73,13 +75,17 @@ struct SettingsView: View {
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: notificationsEnabled) { _, enabled in
-                if enabled {
-                    Task { _ = await NotificationManager.shared.requestPermission() }
+                Task { @MainActor in
+                    if enabled {
+                        _ = await NotificationManager.shared.requestPermission()
+                    }
+                    await NotificationManager.shared.rescheduleAll(for: allItems)
                 }
-                NotificationManager.shared.rescheduleAll(for: allItems)
             }
             .onChange(of: reminderDaysBefore) { _, _ in
-                NotificationManager.shared.rescheduleAll(for: allItems)
+                Task { @MainActor in
+                    await NotificationManager.shared.rescheduleAll(for: allItems)
+                }
             }
             .fileExporter(
                 isPresented: Binding(
@@ -124,23 +130,80 @@ struct SettingsView: View {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let backup = try decoder.decode(FoodBackup.self, from: data)
-            for item in backup.items {
-                modelContext.insert(item.foodItem)
+
+            // 按 uuid 去重，v1 备份无 uuid 时退化为「名称+创建时间」匹配，重复导入不再翻倍
+            let existingItems = (try? modelContext.fetch(FetchDescriptor<FoodItem>())) ?? []
+            var existingUUIDs = Set(existingItems.map(\.uuid))
+            var existingNaturalKeys = Set(existingItems.map { Self.naturalKey(name: $0.name, createdAt: $0.createdAt) })
+
+            var importedCount = 0
+            var skippedCount = 0
+            for backupItem in backup.items {
+                let naturalKey = Self.naturalKey(name: backupItem.name, createdAt: backupItem.createdAt)
+                let isDuplicate = backupItem.uuid.map { existingUUIDs.contains($0) } ?? existingNaturalKeys.contains(naturalKey)
+                guard !isDuplicate else {
+                    skippedCount += 1
+                    continue
+                }
+                let item = backupItem.foodItem
+                modelContext.insert(item)
+                existingUUIDs.insert(item.uuid)
+                existingNaturalKeys.insert(naturalKey)
+                importedCount += 1
             }
+
+            var importedRecordCount = 0
+            if let records = backup.dispositionRecords, !records.isEmpty {
+                let existing = (try? modelContext.fetch(FetchDescriptor<FoodDispositionRecord>())) ?? []
+                var seenUUIDs = Set(existing.map(\.uuid))
+                for record in records where !seenUUIDs.contains(record.uuid) {
+                    modelContext.insert(record.record)
+                    seenUUIDs.insert(record.uuid)
+                    importedRecordCount += 1
+                }
+            }
+
+            var importedReplenishmentCount = 0
+            if let replenishments = backup.replenishmentItems, !replenishments.isEmpty {
+                let existing = (try? modelContext.fetch(FetchDescriptor<ReplenishmentItem>())) ?? []
+                var seenUUIDs = Set(existing.map(\.uuid))
+                for entry in replenishments where !seenUUIDs.contains(entry.uuid) {
+                    modelContext.insert(entry.replenishmentItem)
+                    seenUUIDs.insert(entry.uuid)
+                    importedReplenishmentCount += 1
+                }
+            }
+
             WidgetDataStore.refresh(using: modelContext)
-            statusMessage = "导入完成：\(backup.items.count) 条记录"
+            Task { @MainActor in
+                // 导入的食材此前没有任何提醒，授权后统一补排
+                guard await NotificationManager.shared.requestPermission() else { return }
+                let items = (try? modelContext.fetch(FetchDescriptor<FoodItem>())) ?? []
+                await NotificationManager.shared.rescheduleAll(for: items)
+            }
+
+            var parts = ["食材 +\(importedCount)"]
+            if skippedCount > 0 { parts[0] += "（跳过重复 \(skippedCount)）" }
+            if importedRecordCount > 0 { parts.append("历史记录 +\(importedRecordCount)") }
+            if importedReplenishmentCount > 0 { parts.append("补货 +\(importedReplenishmentCount)") }
+            statusMessage = "导入完成：" + parts.joined(separator: "，")
         } catch {
             statusMessage = "导入失败：\(error.localizedDescription)"
         }
     }
+
+    private static func naturalKey(name: String, createdAt: Date) -> String {
+        "\(name)|\(createdAt.timeIntervalSince1970)"
+    }
 }
 
 struct HistorySuggestionManagementView: View {
-    let items: [FoodItem]
+    @Query(sort: \FoodItem.createdAt, order: .reverse) private var items: [FoodItem]
+    @Query(sort: \FoodDispositionRecord.createdAt, order: .reverse) private var dispositionRecords: [FoodDispositionRecord]
     @ObservedObject private var historySuggestionStore = HistorySuggestionStore.shared
 
     private var templates: [FoodTemplate] {
-        FoodTemplate.fromHistory(items)
+        FoodTemplate.fromHistory(items, records: dispositionRecords)
     }
 
     var body: some View {

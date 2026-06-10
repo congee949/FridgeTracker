@@ -3,13 +3,14 @@ import SwiftData
 
 struct HistoryView: View {
     @Query(sort: \FoodItem.createdAt, order: .reverse) private var allItems: [FoodItem]
+    @Query(sort: \FoodDispositionRecord.createdAt, order: .reverse) private var dispositionRecords: [FoodDispositionRecord]
     @ObservedObject private var historySuggestionStore = HistorySuggestionStore.shared
     @State private var searchText = ""
     @State private var selectedCategory: FoodCategory?
     @State private var selectedTemplate: FoodTemplate?
 
     private var historyTemplates: [FoodTemplate] {
-        historySuggestionStore.applyOverrides(to: FoodTemplate.fromHistory(allItems)).filter { template in
+        historySuggestionStore.applyOverrides(to: FoodTemplate.fromHistory(allItems, records: dispositionRecords)).filter { template in
             let matchesSearch = searchText.isEmpty || template.name.localizedCaseInsensitiveContains(searchText)
             let matchesCategory = selectedCategory == nil || template.category == selectedCategory
             return matchesSearch && matchesCategory

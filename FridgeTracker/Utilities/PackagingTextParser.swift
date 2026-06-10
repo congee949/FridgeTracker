@@ -7,8 +7,11 @@ struct PackagingOCRResult {
 }
 
 struct PackagingTextParser {
-    private static let shelfLifeRegex = try? NSRegularExpression(pattern: #"保质期\s*(\d+)\s*(天|日|个月|月)"#)
+    // 容忍「保质期：12个月」「保质期，12个月」等常见标点写法
+    private static let shelfLifeRegex = try? NSRegularExpression(pattern: #"保质期[：:，,、]?\s*(\d+)\s*(天|日|个月|月)"#)
     private static let dateRegex = try? NSRegularExpression(pattern: #"(20\d{2})[.\-/年](\d{1,2})[.\-/月](\d{1,2})日?"#)
+    // 喷码常见的无分隔紧凑格式：20251201（前后不能再有数字，避免命中条码/批号片段）
+    private static let compactDateRegex = try? NSRegularExpression(pattern: #"(?<!\d)(20\d{2})(1[0-2]|0[1-9])(3[01]|[12]\d|0[1-9])(?!\d)"#)
 
     static func parse(lines: [String], calendar: Calendar = .current) -> PackagingOCRResult {
         let normalizedLines = lines
@@ -85,17 +88,31 @@ struct PackagingTextParser {
     }
 
     private static func firstDate(in text: String, calendar: Calendar = .current) -> Date? {
-        guard let match = firstMatch(dateRegex, in: text), match.numberOfRanges >= 4,
-              let yearRange = Range(match.range(at: 1), in: text),
-              let monthRange = Range(match.range(at: 2), in: text),
-              let dayRange = Range(match.range(at: 3), in: text),
-              let year = Int(text[yearRange]),
-              let month = Int(text[monthRange]),
-              let day = Int(text[dayRange]) else {
-            return nil
-        }
+        firstValidDate(matching: dateRegex, in: text, calendar: calendar)
+            ?? firstValidDate(matching: compactDateRegex, in: text, calendar: calendar)
+    }
 
-        return calendar.date(from: DateComponents(year: year, month: month, day: day))
+    /// 逐个候选校验合法性：OCR 误读出的「2025-13-45」要被拒绝，
+    /// 而不是被 Calendar 翻滚成下一年的某天写进保质期。
+    private static func firstValidDate(matching regex: NSRegularExpression?, in text: String, calendar: Calendar) -> Date? {
+        guard let regex else { return nil }
+        let fullRange = NSRange(text.startIndex..., in: text)
+        for match in regex.matches(in: text, range: fullRange) where match.numberOfRanges >= 4 {
+            guard let yearRange = Range(match.range(at: 1), in: text),
+                  let monthRange = Range(match.range(at: 2), in: text),
+                  let dayRange = Range(match.range(at: 3), in: text),
+                  let year = Int(text[yearRange]),
+                  let month = Int(text[monthRange]),
+                  let day = Int(text[dayRange]) else {
+                continue
+            }
+            let components = DateComponents(year: year, month: month, day: day)
+            guard components.isValidDate(in: calendar), let date = calendar.date(from: components) else {
+                continue
+            }
+            return date
+        }
+        return nil
     }
 
     private static func firstMatch(_ regex: NSRegularExpression?, in text: String) -> NSTextCheckingResult? {

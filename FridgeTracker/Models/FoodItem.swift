@@ -26,11 +26,22 @@ class FoodItem {
         self.quantity = quantity
         self.notes = notes
         self.createdAt = Date()
+        self.originalShelfLifeDays = nil
+        refreshOriginalShelfLife()
+    }
+
+    /// 无购买日期时以 createdAt 当天为入库日估算原始保质期；有购买日期时清空（实时按购买日期计算）。
+    /// 创建、编辑（改保质期/增删购买日期）、从备份恢复后都应调用，保证估算不随时间衰减。
+    func refreshOriginalShelfLife() {
         if purchaseDate == nil {
-            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: expiryDate)).day ?? 1
-            self.originalShelfLifeDays = max(days, 1)
+            let days = Calendar.current.dateComponents(
+                [.day],
+                from: Calendar.current.startOfDay(for: createdAt),
+                to: Calendar.current.startOfDay(for: expiryDate)
+            ).day ?? 1
+            originalShelfLifeDays = max(days, 1)
         } else {
-            self.originalShelfLifeDays = nil
+            originalShelfLifeDays = nil
         }
     }
 
@@ -252,6 +263,21 @@ class FoodDispositionRecord {
         self.action = action
         self.createdAt = Date()
     }
+
+    /// 字段级 init，供备份恢复使用。
+    init(uuid: UUID, foodName: String, category: FoodCategory, storageZone: StorageZone, customIcon: String?, quantity: String?, purchaseDate: Date?, expiryDate: Date, shelfLifeDaysEstimate: Int, action: FoodDispositionAction, createdAt: Date) {
+        self.uuid = uuid
+        self.foodName = foodName
+        self.category = category
+        self.storageZone = storageZone
+        self.customIcon = customIcon
+        self.quantity = quantity
+        self.purchaseDate = purchaseDate
+        self.expiryDate = expiryDate
+        self.shelfLifeDaysEstimate = shelfLifeDaysEstimate
+        self.action = action
+        self.createdAt = createdAt
+    }
 }
 
 @Model
@@ -291,6 +317,20 @@ class ReplenishmentItem {
         self.createdAt = Date()
     }
 
+    /// 字段级 init，供备份恢复使用。
+    init(uuid: UUID, name: String, category: FoodCategory, storageZone: StorageZone, customIcon: String?, quantity: String?, notes: String?, defaultShelfLifeDays: Int, createdAt: Date, completedAt: Date?) {
+        self.uuid = uuid
+        self.name = name
+        self.category = category
+        self.storageZone = storageZone
+        self.customIcon = customIcon
+        self.quantity = quantity
+        self.notes = notes
+        self.defaultShelfLifeDays = defaultShelfLifeDays
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+    }
+
     var displayIcon: String {
         let icon = customIcon?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return icon.isEmpty ? category.icon : icon
@@ -314,11 +354,12 @@ extension ReplenishmentItem {
         return true
     }
 
-    /// 当某食材被「吃掉」次数达到阈值时自动加入补货。
+    /// 当某食材近 30 天内被「吃掉」次数达到阈值时自动加入补货（窗口与「从历史生成」一致）。
     static func autoAddIfNeeded(for item: FoodItem, in context: ModelContext) {
         let name = item.name
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
         let descriptor = FetchDescriptor<FoodDispositionRecord>(
-            predicate: #Predicate { $0.foodName == name }
+            predicate: #Predicate { $0.foodName == name && $0.createdAt >= cutoff }
         )
         let records = (try? context.fetch(descriptor)) ?? []
         let consumedCount = records.filter { $0.action == .consumed }.count

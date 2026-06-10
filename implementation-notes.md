@@ -113,3 +113,46 @@ Executed the high/medium-priority items from the README folder-structure audit. 
 ## Result
 
 7 new source files (FoodTemplate, HistorySuggestionStore, ImagePickers, PackagingOCRConfirmationView, ReplenishmentListView, HistoryView, FoodBackup); 3 large views slimmed (776→501 / 329→86 / 349→283); docs consolidated; stray pbxproj backup untracked; empty UITests dir removed; workspace 4.8 GB → 2.5 MB. Final `xcodebuild`: **BUILD SUCCEEDED** (app + widget).
+
+---
+
+# Bugfix Batch — 2026-06-10 (full-source review findings)
+
+Full-source review surfaced 5 high / 6 medium / ~13 low findings; user approved clearing all in one PR (branch `fix/code-review-batch`). Pre-existing uncommitted `consumeVerb` work was committed separately first to keep attribution clean. Records only material decisions/deviations/tradeoffs.
+
+## Design Decisions
+
+- **Notification permission is requested at first save, not at app launch.** `AddFoodView.save()` routes scheduling through an async helper: ensure permission → cancel → schedule. Launch only *checks* authorization (`isAuthorized()`) and reschedules if already granted — prompting before the user has done anything is hostile and harms grant rates. Order matters: `UNUserNotificationCenter.add` fails while `.notDetermined`, so permission must resolve before scheduling.
+- **Two-stage reminders with an identifier scheme.** Each item now gets `uuid.advance` (expiry − N days, 9:00) and `uuid.expiry` (expiry day, 9:00). `cancelNotification` also removes the legacy bare-`uuid` identifier for migration. `rescheduleAll` no longer calls `removeAllPendingNotificationRequests()`; it removes only identifiers whose prefix parses as a UUID — this still sweeps orphans of deleted items but won't clobber future non-reminder notifications.
+- **Missed-window fallback is opt-in per call site (`allowsImmediateFallback`).** Only the *new item* and *merge* paths fire an immediate (+60 s) reminder when both 9:00 slots are already past and the item isn't expired. Edit, settings-toggle, launch and import reschedules deliberately do NOT, so editing an expiring-today item three times can't produce three pings. This supersedes the 2026-06-01 decision "skip scheduling when the trigger date has passed" — the noise concern that motivated it is handled by the opt-in flag instead of by dropping the reminder entirely.
+- **History templates aggregate inventory ∪ disposition records, newest wins.** `FoodTemplate.fromHistory(_:records:)` sorts candidates by date desc and dedupes by normalized name internally, so results no longer depend on the caller's `@Query` sort order (this was silently inconsistent between AddFoodView newest-first and Settings oldest-first). Fully-consumed foods now persist in the History tab and same-name auto-fill, matching the empty-state copy's promise.
+- **`originalShelfLifeDays` recomputes from `createdAt`, not "today", on edit** (`refreshOriginalShelfLife()`). Resolves the 2026-06-01 open question ("should it update when expiryDate is edited?") with *yes*: using createdAt as the acquisition proxy keeps a months-later typo edit from shrinking the estimate, while expiry edits update it correctly. Same helper restores sane values for v1 backup imports (computed against the item's original createdAt instead of import day).
+- **Backup format v2.** Adds `version`, per-item `uuid` + `originalShelfLifeDays`, and full `dispositionRecords` / `replenishmentItems` arrays — justified (not gold-plating) because History now *depends* on disposition records surviving device migration. All new fields optional ⇒ v1 files decode unchanged. Import dedupes by uuid (v1 fallback: name+createdAt natural key) and reschedules notifications afterward — imported items previously had none until manually edited.
+- **`FoodDetailView` guards against destroyed models** (`item.modelContext != nil && !item.isDeleted` → else `Color.clear`): body re-evaluation during the post-delete dismiss animation was a live SwiftData crash path.
+- **Widget snapshot window is now −14…+30 days.** The widget's stated purpose is "快过期提醒"; a fridge of long-life items now correctly shows the empty state instead of listing items expiring months out.
+
+## Deviations
+
+- **`.badge` authorization dropped instead of implemented.** No code ever set a badge count; per-notification static badge values go stale across multiple items. Removing the unused permission request is the honest fix; real badge support would need delivery-time recomputation (out of scope).
+- **Swipe-to-consume stays confirmation-free** (vs. detail view's confirm dialog). The asymmetry is intentional: swipe is the speed path and `allowsFullSwipe: false` already requires a deliberate second tap. Not changed despite being listed as an inconsistency in the review.
+- **Decimal/Chinese-numeral quantities ("0.5kg", "一盒") remain unparsed** and are still treated as a single unit on consume (whole item removed). Supporting them means redesigning `FoodQuantity` (Int current/total) and its merge/reduce semantics — deferred as feature work, not a bug fix.
+- **No test target added.** Parser/regex changes were verified by a throwaway `swiftc` assertion harness (14 cases, all pass) under `/tmp`, not committed. A real unit-test target requires pbxproj surgery this project's history flags as risky; if wanted, it should be its own pass.
+
+## Tradeoffs
+
+- **Auto-replenish now uses a 30-day window** (was: all-time count), aligning `autoAddIfNeeded` with 「从历史生成」. Threshold semantics otherwise preserved (2nd consume within window triggers).
+- **History-name auto-fill no longer overwrites quantity/notes/purchase-date the user already typed**; category/zone/icon/expiry still apply unconditionally — that *is* the feature, and the user watches it happen. Partial-overwrite is a judgment call, documented here.
+- **Notification deep link reuses the URL route** (`UIApplication.shared.open(fridgetracker://food/<uuid>)` from the delegate) instead of a parallel in-process routing path — one tested navigation path, slightly indirect.
+- **`HistorySuggestionStore.template(for:in:)` left as-is** (pre-existing dead code, zero call sites). Compatible with the new `fromHistory` signature; flagged rather than deleted per surgical-change policy.
+
+## Verification
+
+- Parser assertion harness: 14/14 pass (colon/punctuation tolerance, rollover rejection incl. Feb-30, compact `20251201`, barcode non-match, invalid-then-valid scanning, name candidates).
+- `xcodebuild` app + embedded widget: **BUILD SUCCEEDED**, zero warnings.
+- Simulator smoke test: launch renders food list; `fridgetracker://food` deep link handled; app process alive throughout; launch-time `.task` (widget refresh + auth check) crash-free.
+- NOT runtime-verified (needs interactive use): permission dialog on first save, replenishment sheet close, swipe delete, OCR orientation gains, actual notification delivery timing.
+
+## Open Questions
+
+- Should the immediate fallback reminder (+60 s) instead schedule for the evening (e.g. 20:00) when added during the day? Current choice favors immediacy for soon-expiring purchases.
+- Replenishment quantity copies the last record's in-fridge count (e.g. `1/3个`) — arguably should reset to the package total when re-buying.

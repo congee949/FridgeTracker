@@ -1,11 +1,13 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import UserNotifications
 
 @main
 struct FridgeTrackerApp: App {
     init() {
         configureTabBarAppearance()
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
     }
 
     var body: some Scene {

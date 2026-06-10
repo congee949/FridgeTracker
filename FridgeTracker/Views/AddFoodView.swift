@@ -14,6 +14,7 @@ struct AddFoodView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \FoodItem.createdAt, order: .reverse) private var existingItems: [FoodItem]
+    @Query(sort: \FoodDispositionRecord.createdAt, order: .reverse) private var dispositionRecords: [FoodDispositionRecord]
     @ObservedObject private var historySuggestionStore = HistorySuggestionStore.shared
 
     @State private var name: String = ""
@@ -71,7 +72,11 @@ struct AddFoodView: View {
             }
             .sheet(isPresented: $showPhotoPicker) {
                 PackagingPhotoPicker { image in
-                    recognizeImage(image)
+                    if let image {
+                        recognizeImage(image)
+                    } else {
+                        ocrErrorMessage = "未能读取所选图片，可换一张或继续手动输入。"
+                    }
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
@@ -108,9 +113,14 @@ struct AddFoodView: View {
                     notes = template.notes ?? ""
                     purchaseDate = template.purchaseDate
                     hasPurchaseDate = template.purchaseDate != nil
+                } else {
+                    zone = storageZone
                 }
             }
             .onChange(of: existingItems.count) { _, _ in
+                rebuildHistoryTemplates()
+            }
+            .onChange(of: dispositionRecords.count) { _, _ in
                 rebuildHistoryTemplates()
             }
             .alert("无法使用相机", isPresented: $showCameraDeniedAlert) {
@@ -275,7 +285,7 @@ struct AddFoodView: View {
     }
 
     private func rebuildHistoryTemplates() {
-        cachedHistoryTemplates = FoodTemplate.fromHistory(existingItems)
+        cachedHistoryTemplates = FoodTemplate.fromHistory(existingItems, records: dispositionRecords)
     }
 
     private func isRecentTemplateSelected(_ template: FoodTemplate) -> Bool {
@@ -315,16 +325,27 @@ struct AddFoodView: View {
         category = template.category
         zone = template.storageZone
         customIcon = template.customIcon ?? ""
-        quantity = template.quantity ?? ""
-        notes = template.notes ?? ""
-        purchaseDate = template.purchaseDate
-        hasPurchaseDate = template.purchaseDate != nil
+        // 只填充用户尚未填写的字段，避免输入名称触发的自动套用覆盖已录入内容
+        if quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            quantity = template.quantity ?? ""
+        }
+        if notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            notes = template.notes ?? ""
+        }
+        if !hasPurchaseDate, let templatePurchaseDate = template.purchaseDate {
+            purchaseDate = templatePurchaseDate
+            hasPurchaseDate = true
+        }
         expiryDate = Calendar.current.date(byAdding: .day, value: template.defaultShelfLifeDays, to: Date()) ?? expiryDate
         lastAutoAppliedName = trimmedName
         selectedRecentTemplateName = trimmedName
     }
 
     private func requestCameraThenScan() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            ocrErrorMessage = "当前设备不支持相机，可改用「选包装图」从相册识别。"
+            return
+        }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             showCamera = true
@@ -370,9 +391,11 @@ struct AddFoodView: View {
         request.recognitionLanguages = ["zh-Hans", "en-US"]
         request.usesLanguageCorrection = true
 
+        // 竖拍照片的像素数据是横躺的，方向信息在 imageOrientation 里；不传给 Vision 会显著拉低识别率
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                try VNImageRequestHandler(cgImage: cgImage).perform([request])
+                try VNImageRequestHandler(cgImage: cgImage, orientation: orientation).perform([request])
             } catch {
                 DispatchQueue.main.async {
                     ocrErrorMessage = "包装识别失败，可继续手动输入。"
@@ -414,9 +437,9 @@ struct AddFoodView: View {
             item.quantity = normalizedQuantity.isEmpty ? nil : normalizedQuantity
             item.notes = normalizedNotes.isEmpty ? nil : normalizedNotes
             item.purchaseDate = hasPurchaseDate ? purchaseDate : nil
+            item.refreshOriginalShelfLife()
 
-            NotificationManager.shared.cancelNotification(for: item)
-            NotificationManager.shared.scheduleNotification(for: item)
+            scheduleAfterEnsuringPermission(for: item, allowsImmediateFallback: false)
         } else if let existingItem = mergeCandidate(
             name: trimmedName,
             category: category,
@@ -430,8 +453,7 @@ struct AddFoodView: View {
                 existingItem.notes = normalizedNotes
             }
 
-            NotificationManager.shared.cancelNotification(for: existingItem)
-            NotificationManager.shared.scheduleNotification(for: existingItem)
+            scheduleAfterEnsuringPermission(for: existingItem, allowsImmediateFallback: true)
         } else {
             // Create new
             let item = FoodItem(
@@ -445,7 +467,7 @@ struct AddFoodView: View {
                 notes: normalizedNotes.isEmpty ? nil : normalizedNotes
             )
             modelContext.insert(item)
-            NotificationManager.shared.scheduleNotification(for: item)
+            scheduleAfterEnsuringPermission(for: item, allowsImmediateFallback: true)
         }
 
         WidgetDataStore.refresh(using: modelContext)
@@ -453,6 +475,16 @@ struct AddFoodView: View {
             onSave()
         } else {
             dismiss()
+        }
+    }
+
+    /// 先确保通知权限（首次添加时弹系统授权框），授权后再重排该食材的提醒。
+    /// 未授权状态下直接 add 通知请求会失败，所以顺序必须是先权限后调度。
+    private func scheduleAfterEnsuringPermission(for item: FoodItem, allowsImmediateFallback: Bool) {
+        Task { @MainActor in
+            guard await NotificationManager.shared.requestPermission() else { return }
+            NotificationManager.shared.cancelNotification(for: item)
+            NotificationManager.shared.scheduleNotification(for: item, allowsImmediateFallback: allowsImmediateFallback)
         }
     }
 
@@ -473,6 +505,22 @@ struct AddFoodView: View {
                 item.customIcon == customIcon &&
                 Calendar.current.isDate(item.expiryDate, inSameDayAs: expiryDate) &&
                 FoodQuantity.parse(item.quantity)?.unit == FoodQuantity.parse(quantity)?.unit
+        }
+    }
+}
+
+private extension CGImagePropertyOrientation {
+    init(_ orientation: UIImage.Orientation) {
+        switch orientation {
+        case .up: self = .up
+        case .down: self = .down
+        case .left: self = .left
+        case .right: self = .right
+        case .upMirrored: self = .upMirrored
+        case .downMirrored: self = .downMirrored
+        case .leftMirrored: self = .leftMirrored
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
         }
     }
 }
