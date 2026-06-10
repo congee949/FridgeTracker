@@ -75,7 +75,7 @@ struct FoodDetailView: View {
                         Button {
                             pendingAction = .consumed
                         } label: {
-                            Label("吃掉", systemImage: "checkmark.circle")
+                            Label("\(item.category.consumeVerb)掉", systemImage: "checkmark.circle")
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
@@ -127,16 +127,16 @@ struct FoodDetailView: View {
         .sheet(isPresented: $showEditSheet) {
             AddFoodView(storageZone: item.storageZone, editItem: item)
         }
-        .alert(pendingAction?.title ?? "确认操作", isPresented: Binding(
+        .alert(pendingAction?.title(verb: item.category.consumeVerb) ?? "确认操作", isPresented: Binding(
             get: { pendingAction != nil },
             set: { if !$0 { pendingAction = nil } }
         )) {
             Button("取消", role: .cancel) { pendingAction = nil }
-            Button(pendingAction?.confirmTitle ?? "确认", role: pendingAction?.role) {
+            Button(pendingAction?.confirmTitle(verb: item.category.consumeVerb) ?? "确认", role: pendingAction?.role) {
                 performPendingAction()
             }
         } message: {
-            Text(pendingAction?.message(for: item.name) ?? "")
+            Text(pendingAction?.message(for: item.name, verb: item.category.consumeVerb) ?? "")
         }
         .alert("加入补货清单？", isPresented: $showDiscardReplenishPrompt) {
             Button("不用了", role: .cancel) {
@@ -163,7 +163,7 @@ struct FoodDetailView: View {
         case .consumed:
             modelContext.insert(FoodDispositionRecord(item: item, action: .consumed))
             ReplenishmentItem.autoAddIfNeeded(for: item, in: modelContext)
-            reduceQuantityOrDelete(statusPrefix: "已吃掉 1 份")
+            reduceQuantityOrDelete(statusPrefix: "已\(item.category.consumeVerb)掉 1 份")
         case .discarded:
             modelContext.insert(FoodDispositionRecord(item: item, action: .discarded))
             if item.reduceQuantityByOne() {
@@ -213,19 +213,25 @@ enum DetailAction: Identifiable {
     case discarded
     case delete
 
-    var id: String { title }
-
-    var title: String {
+    var id: String {
         switch self {
-        case .consumed: return "确认吃掉"
+        case .consumed: return "consumed"
+        case .discarded: return "discarded"
+        case .delete: return "delete"
+        }
+    }
+
+    func title(verb: String) -> String {
+        switch self {
+        case .consumed: return "确认\(verb)掉"
         case .discarded: return "确认扔掉"
         case .delete: return "确认删除"
         }
     }
 
-    var confirmTitle: String {
+    func confirmTitle(verb: String) -> String {
         switch self {
-        case .consumed: return "吃掉"
+        case .consumed: return "\(verb)掉"
         case .discarded: return "扔掉"
         case .delete: return "删除"
         }
@@ -238,10 +244,10 @@ enum DetailAction: Identifiable {
         }
     }
 
-    func message(for name: String) -> String {
+    func message(for name: String, verb: String) -> String {
         switch self {
         case .consumed:
-            return "将「\(name)」吃掉 1 份；如果是最后 1 份，会从当前库存移除。"
+            return "将「\(name)」\(verb)掉 1 份；如果是最后 1 份，会从当前库存移除。"
         case .discarded:
             return "将「\(name)」扔掉 1 份；如果是最后 1 份，会从当前库存移除。"
         case .delete:

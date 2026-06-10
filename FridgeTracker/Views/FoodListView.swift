@@ -126,7 +126,7 @@ struct FoodListView: View {
                             Button {
                                 consumeItem(item)
                             } label: {
-                                Label("吃掉", systemImage: "checkmark.circle")
+                                Label("\(item.category.consumeVerb)掉", systemImage: "checkmark.circle")
                             }
                             .tint(.green)
                         }

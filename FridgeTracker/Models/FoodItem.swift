@@ -202,6 +202,15 @@ enum FoodCategory: String, Codable, CaseIterable {
         case .other: return "📦"
         }
     }
+
+    /// 消耗动作的动词词根（吃/喝/用），用于拼接「吃掉」「已吃掉 1 份」等文案。
+    var consumeVerb: String {
+        switch self {
+        case .beverage, .dairy: return "喝"
+        case .condiment:        return "用"
+        default:                return "吃"
+        }
+    }
 }
 
 enum FoodDispositionAction: String, Codable {
