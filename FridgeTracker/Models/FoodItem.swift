@@ -76,6 +76,12 @@ class FoodItem {
         return FoodQuantity.parse(quantity)?.displayText ?? quantity
     }
 
+    /// 数量的两种模式：可解析（「3个」「1/3盒」）按份数计数、逐份消耗；
+    /// 不可解析（「半盒」「0.5kg」）为自由文本，仅展示，消耗时整项移除。
+    var hasCountableQuantity: Bool {
+        FoodQuantity.parse(quantity) != nil
+    }
+
     @discardableResult
     func reduceQuantityByOne() -> Bool {
         guard let parsedQuantity = FoodQuantity.parse(quantity) else { return true }
@@ -97,6 +103,15 @@ class FoodItem {
 
         quantity = current.adding(added).storageText
         return true
+    }
+}
+
+extension FoodItem {
+    /// 按 uuid 同步直查，不依赖 @Query 的加载时机；深链冷启动也能立即拿到结果。
+    static func find(uuid: UUID, in context: ModelContext) -> FoodItem? {
+        var descriptor = FetchDescriptor<FoodItem>(predicate: #Predicate { $0.uuid == uuid })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
     }
 }
 
@@ -365,5 +380,60 @@ extension ReplenishmentItem {
         let consumedCount = records.filter { $0.action == .consumed }.count
         guard consumedCount >= autoReplenishThreshold else { return }
         addIfAbsent(for: item, in: context)
+    }
+}
+
+/// 历史/补货记录的保留策略：处置记录和已完成的补货项按用户设置的天数清理，
+/// 待补货项与当前库存永不清理。默认「永久保留」，只有用户显式选择期限后才会删数据。
+enum HistoryMaintenance {
+    static let retentionDaysKey = "historyRetentionDays"
+    /// -1 = 永久保留（默认）；其余为保留天数
+    static let retentionOptions: [(label: String, days: Int)] = [
+        ("永久", -1), ("90 天", 90), ("180 天", 180), ("1 年", 365)
+    ]
+
+    /// defaults 可注入：单测运行在真实 app 宿主进程里，若直接读写 UserDefaults.standard，
+    /// 测试残留的保留期会在下次启动时触发对真实数据的静默清理。
+    static func retentionDays(from defaults: UserDefaults = .standard) -> Int {
+        let stored = defaults.object(forKey: retentionDaysKey) as? Int
+        return stored ?? -1
+    }
+
+    /// 启动时按当前策略清理；策略为「永久」时不动任何数据。
+    static func pruneIfEnabled(in context: ModelContext, defaults: UserDefaults = .standard, now: Date = Date()) {
+        let days = retentionDays(from: defaults)
+        guard days > 0 else { return }
+        prune(in: context, retentionDays: days, now: now)
+    }
+
+    /// 删除 cutoff 之前的处置记录和 cutoff 之前完成的补货项；返回删除数量供设置页展示。
+    @discardableResult
+    static func prune(in context: ModelContext, retentionDays: Int, now: Date = Date()) -> (records: Int, replenishments: Int) {
+        guard retentionDays > 0,
+              let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: now) else {
+            return (0, 0)
+        }
+
+        let recordDescriptor = FetchDescriptor<FoodDispositionRecord>(
+            predicate: #Predicate { $0.createdAt < cutoff }
+        )
+        let staleRecords = (try? context.fetch(recordDescriptor)) ?? []
+        staleRecords.forEach(context.delete)
+
+        // completedAt 为可选值，#Predicate 里只筛「已完成」，超龄判断放到内存里做
+        let completedDescriptor = FetchDescriptor<ReplenishmentItem>(
+            predicate: #Predicate { $0.completedAt != nil }
+        )
+        let completed = (try? context.fetch(completedDescriptor)) ?? []
+        let staleReplenishments = completed.filter { item in
+            guard let completedAt = item.completedAt else { return false }
+            return completedAt < cutoff
+        }
+        staleReplenishments.forEach(context.delete)
+
+        if !staleRecords.isEmpty || !staleReplenishments.isEmpty {
+            try? context.save()
+        }
+        return (staleRecords.count, staleReplenishments.count)
     }
 }

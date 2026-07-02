@@ -152,7 +152,11 @@ struct FoodDetailView: View {
                 performPendingAction()
             }
         } message: {
-            Text(pendingAction?.message(for: item.name, verb: item.category.consumeVerb) ?? "")
+            Text(pendingAction?.message(
+                for: item.name,
+                verb: item.category.consumeVerb,
+                hasFreeTextQuantity: item.quantityDisplayText != nil && !item.hasCountableQuantity
+            ) ?? "")
         }
         .alert("加入补货清单？", isPresented: $showDiscardReplenishPrompt) {
             Button("不用了", role: .cancel) {
@@ -270,11 +274,19 @@ enum DetailAction: Identifiable {
         }
     }
 
-    func message(for name: String, verb: String) -> String {
+    /// 数量为自由文本（如「半盒」「0.5kg」）时不参与计数，消耗会一次移除整项——
+    /// 弹窗文案必须说清这一点，不能沿用「减 1 份」的说法误导用户。
+    func message(for name: String, verb: String, hasFreeTextQuantity: Bool) -> String {
         switch self {
         case .consumed:
+            if hasFreeTextQuantity {
+                return "「\(name)」的数量是自由文本，不按份数递减；\(verb)掉会移除整项并计入历史。"
+            }
             return "将「\(name)」\(verb)掉 1 份；如果是最后 1 份，会从当前库存移除。"
         case .discarded:
+            if hasFreeTextQuantity {
+                return "「\(name)」的数量是自由文本，不按份数递减；扔掉会移除整项并计入历史。"
+            }
             return "将「\(name)」扔掉 1 份；如果是最后 1 份，会从当前库存移除。"
         case .delete:
             return "删除只用于误录入，不会记录吃掉或扔掉结果。"

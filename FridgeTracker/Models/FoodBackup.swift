@@ -19,14 +19,28 @@ struct FoodBackupDocument: FileDocument {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        backup = try JSONDecoder().decode(FoodBackup.self, from: data)
+        backup = try Self.decode(from: data)
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: try Self.encode(backup))
+    }
+
+    /// Serializes a backup with ISO-8601 dates. Kept symmetric with `decode(from:)`.
+    static func encode(_ backup: FoodBackup) throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return FileWrapper(regularFileWithContents: try encoder.encode(backup))
+        return try encoder.encode(backup)
+    }
+
+    /// Parses a backup file. Must use the same `.iso8601` date strategy as `encode(_:)`: the previous
+    /// default decoder expected a `Double` and threw `typeMismatch` on the ISO-8601 date strings that
+    /// `encode` writes, so every exported file failed to re-import.
+    static func decode(from data: Data) throws -> FoodBackup {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(FoodBackup.self, from: data)
     }
 }
 

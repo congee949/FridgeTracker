@@ -7,22 +7,41 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FACE0000000000000000000E /* FoodBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE0000000000000000000D /* FoodBackup.swift */; };
-		FACE0000000000000000000C /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE0000000000000000000B /* HistoryView.swift */; };
-		FACE0000000000000000000A /* ReplenishmentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000009 /* ReplenishmentListView.swift */; };
-		FACE00000000000000000008 /* PackagingOCRConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */; };
-		FACE00000000000000000006 /* ImagePickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000005 /* ImagePickers.swift */; };
-		FACE00000000000000000004 /* HistorySuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000003 /* HistorySuggestionStore.swift */; };
-		FACE00000000000000000002 /* FoodTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000001 /* FoodTemplate.swift */; };
-			A1C0AA000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0AA000000000000000002 /* Assets.xcassets */; };
+		01674BF693FB0CFD6378FFB4 /* FridgeUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850913117EEE6B0A293DAFD4 /* FridgeUITestCase.swift */; };
+		04949819D6547C5E7338F0D9 /* ConsumeDiscardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E9728A47CDE0BAE8EFCC99 /* ConsumeDiscardUITests.swift */; };
+		0842585D5B0742708DEFC001 /* FoodRowViewSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209AEA55F1101D0A69ABF954 /* FoodRowViewSnapshotTests.swift */; };
 		09984C82F358FA0058A871F8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8F4811CE064772C84D408F /* SettingsView.swift */; };
+		0BDD05764CE9E3F674817918 /* AddFoodScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20E9DC10540F849C2D0BE44 /* AddFoodScreen.swift */; };
+		0D5FDE9C2AD3BA011073D111 /* FoodListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45903AA3574675CAF6734B70 /* FoodListScreen.swift */; };
 		13F1C9359E7DBABB3BD76D5D /* AddFoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0512BC95544214F676F1398F /* AddFoodView.swift */; };
+		14F91C38C9D3A4C679A224C0 /* FoodItemLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B77A62203755DB098FD2F0 /* FoodItemLookupTests.swift */; };
+		2019065F3B5EF371066ED9A7 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 902EA5F34579DEF5209856DD /* SmokeTests.swift */; };
 		2176ED045800908B455E08FD /* FoodDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD55CECEFC07E4F4116BE3D /* FoodDetailView.swift */; };
+		2C0A687C02977E706865ACA0 /* PackagingDateSanityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285CD0110CC6F97935FB01D6 /* PackagingDateSanityTests.swift */; };
 		2E607A8E98713A78501EB892 /* FoodRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC2F65D816A8741FFD285C6 /* FoodRowView.swift */; };
+		33E6E3731BBABA6D8B3FD626 /* DetailActionMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE6B016C479A73AC0A09CD7 /* DetailActionMessageTests.swift */; };
+		34FD30B3C956881EC8054B7C /* PackagingTextParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3161129E1B0C3516803EB3 /* PackagingTextParserTests.swift */; };
+		4825B5D4D2C1B5D4A1729714 /* HistoryMaintenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61FC107A90DE07920480B8D /* HistoryMaintenanceTests.swift */; };
+		4837B44488F6AAA049FA611F /* ReplenishmentItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65FFA5730901FD6455DC19EB /* ReplenishmentItemTests.swift */; };
+		4D607ED417541EACD9D268FE /* SmokeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D2C44EF975E0260DA11D767 /* SmokeUITests.swift */; };
+		5AD563D06BFFEED590C659CD /* WidgetSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41DD118B5F48A93C344B208C /* WidgetSyncStatusTests.swift */; };
 		732B6779B2BD0DD14F1F3E57 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A53310F77E89B37AB314762 /* NotificationManager.swift */; };
+		79A70BA1540334B1ACAF7F1E /* FoodBackupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512292A29CA424F26247927A /* FoodBackupTests.swift */; };
+		7BF9AE2199972B031061180C /* FoodQuantityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2493C92ED675E1810D4A5B /* FoodQuantityTests.swift */; };
+		84FFA52C8F53A006667B068E /* FoodTemplateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40D7EDC843639F4F22FD5A7D /* FoodTemplateTests.swift */; };
+		85AC5F96326D9FF3CF91E3B5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9EC6C41AE240785152BB9FBC /* Foundation.framework */; };
+		8FC1E045E245BD1EB26092F1 /* ExpiringFoodSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79195988699F251EB30166AA /* ExpiringFoodSnapshotTests.swift */; };
+		96A491DE7E40D071A0C86CB0 /* InMemoryModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE48485E49BD90BBF29E0464 /* InMemoryModelContainer.swift */; };
+		99A49776CE8C26168F57AA34 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 29C69936106652379CFA113B /* SnapshotTesting */; };
 		9E3D25F33601468E50071737 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D807BBA03CF83A3B5F2B7B /* ContentView.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* HistorySuggestionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HistorySuggestionStoreTests.swift */; };
+		A1C0AA000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0AA000000000000000002 /* Assets.xcassets */; };
+		A31D91769FA1A6AEB8DA43F7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9EC6C41AE240785152BB9FBC /* Foundation.framework */; };
 		B2228E48308C93B9034115AF /* FoodItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1573C7677BB4260AD6179A6 /* FoodItem.swift */; };
+		B533D7CCE014906277707F84 /* NotificationManagerIdentifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA636067B7B952AE55CAE9 /* NotificationManagerIdentifierTests.swift */; };
 		BB229D8169BBC5714B43F22A /* FoodListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9293497F26195E28A829310C /* FoodListViewModel.swift */; };
+		BFF519A042A46CB513427F32 /* FoodItemExpiryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE3F708B90C9F5B7BC8C582 /* FoodItemExpiryTests.swift */; };
+		D6282E1500D14D8413797167 /* AddFoodUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4AAE5EBD01D9B363A2090E7 /* AddFoodUITests.swift */; };
 		DC249637CA29AFAF4B62268E /* FridgeTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2968A8739AF213C8B19AB4 /* FridgeTrackerApp.swift */; };
 		E00000000000000000000001 /* ExpiringFoodSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000002 /* ExpiringFoodSnapshot.swift */; };
 		E00000000000000000000003 /* WidgetDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000004 /* WidgetDataStore.swift */; };
@@ -32,9 +51,31 @@
 		E0000000000000000000000A /* FridgeTrackerWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = E0000000000000000000000B /* FridgeTrackerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E984AD78965102F81BD3043C /* FoodListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0A500A2D9B1905D5646B0 /* FoodListView.swift */; };
 		F00000000000000000000001 /* PackagingTextParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000002 /* PackagingTextParser.swift */; };
+		F76C7FD5340E5B43288387C1 /* FoodListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1287FD08F2F674316C833A5 /* FoodListViewModelTests.swift */; };
+		FACE00000000000000000002 /* FoodTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000001 /* FoodTemplate.swift */; };
+		FACE00000000000000000004 /* HistorySuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000003 /* HistorySuggestionStore.swift */; };
+		FACE00000000000000000006 /* ImagePickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000005 /* ImagePickers.swift */; };
+		FACE00000000000000000008 /* PackagingOCRConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */; };
+		FACE0000000000000000000A /* ReplenishmentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE00000000000000000009 /* ReplenishmentListView.swift */; };
+		FACE0000000000000000000C /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE0000000000000000000B /* HistoryView.swift */; };
+		FACE0000000000000000000E /* FoodBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACE0000000000000000000D /* FoodBackup.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		7299D2A81CC4B179602A1423 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6772EC0E5D0CA05E04DDDB49;
+			remoteInfo = FridgeTracker;
+		};
+		D3EB65FF6A30EACC44B64E52 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6772EC0E5D0CA05E04DDDB49;
+			remoteInfo = FridgeTracker;
+		};
 		E00000000000000000000017 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
@@ -59,24 +100,43 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		FACE0000000000000000000D /* FoodBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodBackup.swift; sourceTree = "<group>"; };
-		FACE0000000000000000000B /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
-		FACE00000000000000000009 /* ReplenishmentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplenishmentListView.swift; sourceTree = "<group>"; };
-		FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingOCRConfirmationView.swift; sourceTree = "<group>"; };
-		FACE00000000000000000005 /* ImagePickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickers.swift; sourceTree = "<group>"; };
-		FACE00000000000000000003 /* HistorySuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySuggestionStore.swift; sourceTree = "<group>"; };
-		FACE00000000000000000001 /* FoodTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodTemplate.swift; sourceTree = "<group>"; };
-			A1C0AA000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0512BC95544214F676F1398F /* AddFoodView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddFoodView.swift; sourceTree = "<group>"; };
+		0CCA636067B7B952AE55CAE9 /* NotificationManagerIdentifierTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManagerIdentifierTests.swift; sourceTree = "<group>"; };
+		0EE6B016C479A73AC0A09CD7 /* DetailActionMessageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetailActionMessageTests.swift; sourceTree = "<group>"; };
 		1A8F4811CE064772C84D408F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		1D2C44EF975E0260DA11D767 /* SmokeUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeUITests.swift; sourceTree = "<group>"; };
+		209AEA55F1101D0A69ABF954 /* FoodRowViewSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodRowViewSnapshotTests.swift; sourceTree = "<group>"; };
+		285CD0110CC6F97935FB01D6 /* PackagingDateSanityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PackagingDateSanityTests.swift; sourceTree = "<group>"; };
+		40D7EDC843639F4F22FD5A7D /* FoodTemplateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodTemplateTests.swift; sourceTree = "<group>"; };
+		40DFA3EBDB6D96E809FED405 /* FridgeTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FridgeTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		41DD118B5F48A93C344B208C /* WidgetSyncStatusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSyncStatusTests.swift; sourceTree = "<group>"; };
 		42D807BBA03CF83A3B5F2B7B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		45903AA3574675CAF6734B70 /* FoodListScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodListScreen.swift; sourceTree = "<group>"; };
 		4CC0A500A2D9B1905D5646B0 /* FoodListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodListView.swift; sourceTree = "<group>"; };
+		512292A29CA424F26247927A /* FoodBackupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodBackupTests.swift; sourceTree = "<group>"; };
+		5E2493C92ED675E1810D4A5B /* FoodQuantityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodQuantityTests.swift; sourceTree = "<group>"; };
+		65FFA5730901FD6455DC19EB /* ReplenishmentItemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReplenishmentItemTests.swift; sourceTree = "<group>"; };
+		79195988699F251EB30166AA /* ExpiringFoodSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExpiringFoodSnapshotTests.swift; sourceTree = "<group>"; };
 		7D2968A8739AF213C8B19AB4 /* FridgeTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeTrackerApp.swift; sourceTree = "<group>"; };
+		7D3161129E1B0C3516803EB3 /* PackagingTextParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PackagingTextParserTests.swift; sourceTree = "<group>"; };
+		850913117EEE6B0A293DAFD4 /* FridgeUITestCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FridgeUITestCase.swift; sourceTree = "<group>"; };
 		8A53310F77E89B37AB314762 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		902EA5F34579DEF5209856DD /* SmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		9293497F26195E28A829310C /* FoodListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodListViewModel.swift; sourceTree = "<group>"; };
+		99E9728A47CDE0BAE8EFCC99 /* ConsumeDiscardUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConsumeDiscardUITests.swift; sourceTree = "<group>"; };
+		9EC6C41AE240785152BB9FBC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		A1B2C3D4E5F60718293A4B5D /* HistorySuggestionStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HistorySuggestionStoreTests.swift; sourceTree = "<group>"; };
+		A1C0AA000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A97C29AD63741CF438998CE6 /* FridgeTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FridgeTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AE48485E49BD90BBF29E0464 /* InMemoryModelContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InMemoryModelContainer.swift; sourceTree = "<group>"; };
+		B4AAE5EBD01D9B363A2090E7 /* AddFoodUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddFoodUITests.swift; sourceTree = "<group>"; };
+		B61FC107A90DE07920480B8D /* HistoryMaintenanceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HistoryMaintenanceTests.swift; sourceTree = "<group>"; };
 		BFC2F65D816A8741FFD285C6 /* FoodRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodRowView.swift; sourceTree = "<group>"; };
 		CCD55CECEFC07E4F4116BE3D /* FoodDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodDetailView.swift; sourceTree = "<group>"; };
+		D1287FD08F2F674316C833A5 /* FoodListViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodListViewModelTests.swift; sourceTree = "<group>"; };
+		D20E9DC10540F849C2D0BE44 /* AddFoodScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddFoodScreen.swift; sourceTree = "<group>"; };
+		D8B77A62203755DB098FD2F0 /* FoodItemLookupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodItemLookupTests.swift; sourceTree = "<group>"; };
+		DFE3F708B90C9F5B7BC8C582 /* FoodItemExpiryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoodItemExpiryTests.swift; sourceTree = "<group>"; };
 		E00000000000000000000002 /* ExpiringFoodSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpiringFoodSnapshot.swift; sourceTree = "<group>"; };
 		E00000000000000000000004 /* WidgetDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataStore.swift; sourceTree = "<group>"; };
 		E00000000000000000000006 /* FridgeTrackerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridgeTrackerWidget.swift; sourceTree = "<group>"; };
@@ -87,9 +147,34 @@
 		E0000000000000000000000E /* FridgeTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FridgeTracker.entitlements; sourceTree = "<group>"; };
 		F00000000000000000000002 /* PackagingTextParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingTextParser.swift; sourceTree = "<group>"; };
 		F1573C7677BB4260AD6179A6 /* FoodItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodItem.swift; sourceTree = "<group>"; };
+		FACE00000000000000000001 /* FoodTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodTemplate.swift; sourceTree = "<group>"; };
+		FACE00000000000000000003 /* HistorySuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistorySuggestionStore.swift; sourceTree = "<group>"; };
+		FACE00000000000000000005 /* ImagePickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickers.swift; sourceTree = "<group>"; };
+		FACE00000000000000000007 /* PackagingOCRConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingOCRConfirmationView.swift; sourceTree = "<group>"; };
+		FACE00000000000000000009 /* ReplenishmentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplenishmentListView.swift; sourceTree = "<group>"; };
+		FACE0000000000000000000B /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		FACE0000000000000000000D /* FoodBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodBackup.swift; sourceTree = "<group>"; };
+		FAD40C45D386F9240F7868F9 /* FridgeTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FridgeTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		14C31DE999DDF84A22960729 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85AC5F96326D9FF3CF91E3B5 /* Foundation.framework in Frameworks */,
+				99A49776CE8C26168F57AA34 /* SnapshotTesting in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D2FE51E56AF44BCD8B8C977 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A31D91769FA1A6AEB8DA43F7 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6DB04654966809A36F783873 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -107,6 +192,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		080CA6197820D51DDFAA1890 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				850913117EEE6B0A293DAFD4 /* FridgeUITestCase.swift */,
+			);
+			name = Support;
+			path = Support;
+			sourceTree = "<group>";
+		};
 		32120412CDF92CE44C01AF8D /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -119,9 +213,36 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		4319176663AC563F0CE1B424 /* FridgeTrackerTests */ = {
+			isa = PBXGroup;
+			children = (
+				65FFA5730901FD6455DC19EB /* ReplenishmentItemTests.swift */,
+				902EA5F34579DEF5209856DD /* SmokeTests.swift */,
+				D495F3C0F69FC50497A22596 /* Support */,
+				40D7EDC843639F4F22FD5A7D /* FoodTemplateTests.swift */,
+				A1B2C3D4E5F60718293A4B5D /* HistorySuggestionStoreTests.swift */,
+				79195988699F251EB30166AA /* ExpiringFoodSnapshotTests.swift */,
+				DFE3F708B90C9F5B7BC8C582 /* FoodItemExpiryTests.swift */,
+				D1287FD08F2F674316C833A5 /* FoodListViewModelTests.swift */,
+				5E2493C92ED675E1810D4A5B /* FoodQuantityTests.swift */,
+				0CCA636067B7B952AE55CAE9 /* NotificationManagerIdentifierTests.swift */,
+				7D3161129E1B0C3516803EB3 /* PackagingTextParserTests.swift */,
+				512292A29CA424F26247927A /* FoodBackupTests.swift */,
+				209AEA55F1101D0A69ABF954 /* FoodRowViewSnapshotTests.swift */,
+				0EE6B016C479A73AC0A09CD7 /* DetailActionMessageTests.swift */,
+				D8B77A62203755DB098FD2F0 /* FoodItemLookupTests.swift */,
+				B61FC107A90DE07920480B8D /* HistoryMaintenanceTests.swift */,
+				285CD0110CC6F97935FB01D6 /* PackagingDateSanityTests.swift */,
+				41DD118B5F48A93C344B208C /* WidgetSyncStatusTests.swift */,
+			);
+			name = FridgeTrackerTests;
+			path = FridgeTrackerTests;
+			sourceTree = "<group>";
+		};
 		4F6F5CC3FCCF73F75AE9CCF4 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A975D33938842D107A49072E /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -133,6 +254,8 @@
 				E00000000000000000000014 /* FridgeTrackerWidget */,
 				86024CAD1E83101D97359D73 /* Products */,
 				4F6F5CC3FCCF73F75AE9CCF4 /* Frameworks */,
+				4319176663AC563F0CE1B424 /* FridgeTrackerTests */,
+				CD69F69C9DAAC9E558EF5BFB /* FridgeTrackerUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -141,6 +264,8 @@
 			children = (
 				A97C29AD63741CF438998CE6 /* FridgeTracker.app */,
 				E0000000000000000000000B /* FridgeTrackerWidget.appex */,
+				FAD40C45D386F9240F7868F9 /* FridgeTrackerTests.xctest */,
+				40DFA3EBDB6D96E809FED405 /* FridgeTrackerUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -162,12 +287,30 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		A975D33938842D107A49072E /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				9EC6C41AE240785152BB9FBC /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		AB8D408CB1881C666AAC0831 /* App */ = {
 			isa = PBXGroup;
 			children = (
 				7D2968A8739AF213C8B19AB4 /* FridgeTrackerApp.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		C2E4B394B97C93E577909545 /* PageObjects */ = {
+			isa = PBXGroup;
+			children = (
+				D20E9DC10540F849C2D0BE44 /* AddFoodScreen.swift */,
+				45903AA3574675CAF6734B70 /* FoodListScreen.swift */,
+			);
+			name = PageObjects;
+			path = PageObjects;
 			sourceTree = "<group>";
 		};
 		C9E04F99D8E7C9D4D391AEF8 /* Models */ = {
@@ -178,6 +321,28 @@
 				F1573C7677BB4260AD6179A6 /* FoodItem.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		CD69F69C9DAAC9E558EF5BFB /* FridgeTrackerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				1D2C44EF975E0260DA11D767 /* SmokeUITests.swift */,
+				B4AAE5EBD01D9B363A2090E7 /* AddFoodUITests.swift */,
+				99E9728A47CDE0BAE8EFCC99 /* ConsumeDiscardUITests.swift */,
+				C2E4B394B97C93E577909545 /* PageObjects */,
+				080CA6197820D51DDFAA1890 /* Support */,
+			);
+			name = FridgeTrackerUITests;
+			path = FridgeTrackerUITests;
+			sourceTree = "<group>";
+		};
+		D495F3C0F69FC50497A22596 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				AE48485E49BD90BBF29E0464 /* InMemoryModelContainer.swift */,
+			);
+			name = Support;
+			path = Support;
 			sourceTree = "<group>";
 		};
 		E00000000000000000000014 /* FridgeTrackerWidget */ = {
@@ -216,6 +381,45 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		528C7C9217EF3AF5EA3BEB72 /* FridgeTrackerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 75DC12D2305B6D3DBF58FAE7 /* Build configuration list for PBXNativeTarget "FridgeTrackerTests" */;
+			buildPhases = (
+				FCB804CC7872753E084DFA74 /* Sources */,
+				14C31DE999DDF84A22960729 /* Frameworks */,
+				D4370568178C0D8436769A76 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				96E66C2F941E8CE7FDD732CB /* PBXTargetDependency */,
+			);
+			name = FridgeTrackerTests;
+			packageProductDependencies = (
+				29C69936106652379CFA113B /* SnapshotTesting */,
+			);
+			productName = FridgeTrackerTests;
+			productReference = FAD40C45D386F9240F7868F9 /* FridgeTrackerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		5543E046ACB7CFAB6EFC0F68 /* FridgeTrackerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 94B55BB3903D031E239F352A /* Build configuration list for PBXNativeTarget "FridgeTrackerUITests" */;
+			buildPhases = (
+				0A9D98836EDFEC7EEC1948BC /* Sources */,
+				2D2FE51E56AF44BCD8B8C977 /* Frameworks */,
+				CA48BB502E96A1C0F1E2B862 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DF3CD6B0DA3CB2526D13CD2F /* PBXTargetDependency */,
+			);
+			name = FridgeTrackerUITests;
+			productName = FridgeTrackerUITests;
+			productReference = 40DFA3EBDB6D96E809FED405 /* FridgeTrackerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		6772EC0E5D0CA05E04DDDB49 /* FridgeTracker */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B8C0C64CF739C292C964144F /* Build configuration list for PBXNativeTarget "FridgeTracker" */;
@@ -268,12 +472,17 @@
 				Base,
 			);
 			mainGroup = 5928955287B8089ED2177128;
+			packageReferences = (
+				67C4D6A45521B0108B5A7C6A /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
+			);
 			productRefGroup = 86024CAD1E83101D97359D73 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				6772EC0E5D0CA05E04DDDB49 /* FridgeTracker */,
 				E00000000000000000000015 /* FridgeTrackerWidget */,
+				528C7C9217EF3AF5EA3BEB72 /* FridgeTrackerTests */,
+				5543E046ACB7CFAB6EFC0F68 /* FridgeTrackerUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -287,6 +496,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CA48BB502E96A1C0F1E2B862 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4370568178C0D8436769A76 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E00000000000000000000011 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -297,6 +520,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0A9D98836EDFEC7EEC1948BC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D607ED417541EACD9D268FE /* SmokeUITests.swift in Sources */,
+				D6282E1500D14D8413797167 /* AddFoodUITests.swift in Sources */,
+				04949819D6547C5E7338F0D9 /* ConsumeDiscardUITests.swift in Sources */,
+				0BDD05764CE9E3F674817918 /* AddFoodScreen.swift in Sources */,
+				0D5FDE9C2AD3BA011073D111 /* FoodListScreen.swift in Sources */,
+				01674BF693FB0CFD6378FFB4 /* FridgeUITestCase.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7B1AB24959979FF757979CE2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -334,9 +570,46 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FCB804CC7872753E084DFA74 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2019065F3B5EF371066ED9A7 /* SmokeTests.swift in Sources */,
+				4837B44488F6AAA049FA611F /* ReplenishmentItemTests.swift in Sources */,
+				96A491DE7E40D071A0C86CB0 /* InMemoryModelContainer.swift in Sources */,
+				84FFA52C8F53A006667B068E /* FoodTemplateTests.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* HistorySuggestionStoreTests.swift in Sources */,
+				8FC1E045E245BD1EB26092F1 /* ExpiringFoodSnapshotTests.swift in Sources */,
+				BFF519A042A46CB513427F32 /* FoodItemExpiryTests.swift in Sources */,
+				F76C7FD5340E5B43288387C1 /* FoodListViewModelTests.swift in Sources */,
+				7BF9AE2199972B031061180C /* FoodQuantityTests.swift in Sources */,
+				B533D7CCE014906277707F84 /* NotificationManagerIdentifierTests.swift in Sources */,
+				34FD30B3C956881EC8054B7C /* PackagingTextParserTests.swift in Sources */,
+				79A70BA1540334B1ACAF7F1E /* FoodBackupTests.swift in Sources */,
+				0842585D5B0742708DEFC001 /* FoodRowViewSnapshotTests.swift in Sources */,
+				33E6E3731BBABA6D8B3FD626 /* DetailActionMessageTests.swift in Sources */,
+				14F91C38C9D3A4C679A224C0 /* FoodItemLookupTests.swift in Sources */,
+				4825B5D4D2C1B5D4A1729714 /* HistoryMaintenanceTests.swift in Sources */,
+				2C0A687C02977E706865ACA0 /* PackagingDateSanityTests.swift in Sources */,
+				5AD563D06BFFEED590C659CD /* WidgetSyncStatusTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		96E66C2F941E8CE7FDD732CB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FridgeTracker;
+			target = 6772EC0E5D0CA05E04DDDB49 /* FridgeTracker */;
+			targetProxy = 7299D2A81CC4B179602A1423 /* PBXContainerItemProxy */;
+		};
+		DF3CD6B0DA3CB2526D13CD2F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FridgeTracker;
+			target = 6772EC0E5D0CA05E04DDDB49 /* FridgeTracker */;
+			targetProxy = D3EB65FF6A30EACC44B64E52 /* PBXContainerItemProxy */;
+		};
 		E00000000000000000000013 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = E00000000000000000000015 /* FridgeTrackerWidget */;
@@ -403,6 +676,42 @@
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
+		};
+		59CF9163B238268BADA37959 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker.FridgeTrackerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = FridgeTracker;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		8E74F23D51ED1A7A6C811204 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker.FridgeTrackerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FridgeTracker.app/FridgeTracker";
+			};
+			name = Debug;
 		};
 		A4809E0E4FFD3F9578CD5486 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -512,14 +821,68 @@
 			};
 			name = Release;
 		};
+		E39C8316B0D153DC0D8B9A78 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker.FridgeTrackerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = FridgeTracker;
+			};
+			name = Debug;
+		};
+		E959AA3752F853BF5923E70E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AU57X34LPB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.congee.FridgeTracker.FridgeTrackerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FridgeTracker.app/FridgeTracker";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		75DC12D2305B6D3DBF58FAE7 /* Build configuration list for PBXNativeTarget "FridgeTrackerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E959AA3752F853BF5923E70E /* Release */,
+				8E74F23D51ED1A7A6C811204 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		9204FD22A3021590D1C529EB /* Build configuration list for PBXProject "FridgeTracker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AD6D2BD8FC01D8BDFC72C453 /* Debug */,
 				4A3C647615E4BC4E985A5951 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		94B55BB3903D031E239F352A /* Build configuration list for PBXNativeTarget "FridgeTrackerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59CF9163B238268BADA37959 /* Release */,
+				E39C8316B0D153DC0D8B9A78 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -543,6 +906,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		67C4D6A45521B0108B5A7C6A /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.17.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		29C69936106652379CFA113B /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67C4D6A45521B0108B5A7C6A /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
 }

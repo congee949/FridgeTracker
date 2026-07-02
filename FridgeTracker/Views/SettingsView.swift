@@ -5,12 +5,17 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     @AppStorage("reminderDaysBefore") private var reminderDaysBefore = -1
+    @AppStorage(HistoryMaintenance.retentionDaysKey) private var historyRetentionDays = -1
+    @AppStorage(WidgetDataStore.lastSyncTimestampKey) private var widgetSyncTimestamp = 0.0
+    @AppStorage(WidgetDataStore.lastSyncErrorKey) private var widgetSyncError = ""
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FoodItem.createdAt) private var allItems: [FoodItem]
     @ObservedObject private var historySuggestionStore = HistorySuggestionStore.shared
     @State private var exportDocument: FoodBackupDocument?
     @State private var isImporting = false
     @State private var statusMessage: String?
+    @State private var showPruneConfirmation = false
+    @State private var pruneMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -51,6 +56,27 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("历史") {
+                    Picker("历史保留", selection: $historyRetentionDays) {
+                        ForEach(HistoryMaintenance.retentionOptions, id: \.days) { option in
+                            Text(option.label).tag(option.days)
+                        }
+                    }
+                    if historyRetentionDays > 0 {
+                        Button("立即清理历史", role: .destructive) {
+                            showPruneConfirmation = true
+                        }
+                    }
+                    if let pruneMessage {
+                        Text(pruneMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("清理会删除保留期之前的吃掉/扔掉记录和已完成的补货记录；当前库存和待补货不受影响。选择期限后，每次启动也会自动清理超期记录。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("数据") {
                     Button("导出数据") {
                         let records = (try? modelContext.fetch(FetchDescriptor<FoodDispositionRecord>())) ?? []
@@ -64,6 +90,17 @@ struct SettingsView: View {
                         Text(statusMessage)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("小组件") {
+                    LabeledContent("数据同步") {
+                        Text(widgetSyncStatusText)
+                            .foregroundStyle(widgetSyncError.isEmpty ? Color.secondary : Color.orange)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Button("立即刷新小组件") {
+                        WidgetDataStore.refresh(using: modelContext)
                     }
                 }
 
@@ -86,6 +123,15 @@ struct SettingsView: View {
                 Task { @MainActor in
                     await NotificationManager.shared.rescheduleAll(for: allItems)
                 }
+            }
+            .alert("清理历史记录？", isPresented: $showPruneConfirmation) {
+                Button("取消", role: .cancel) {}
+                Button("清理", role: .destructive) {
+                    let removed = HistoryMaintenance.prune(in: modelContext, retentionDays: historyRetentionDays)
+                    pruneMessage = "已清理：吃掉/扔掉记录 \(removed.records) 条，已完成补货 \(removed.replenishments) 条"
+                }
+            } message: {
+                Text("将删除保留期（\(retentionLabel)）之前的吃掉/扔掉记录与已完成的补货记录，删除后无法恢复。")
             }
             .fileExporter(
                 isPresented: Binding(
@@ -114,6 +160,14 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
         return build.map { "\(version) (\($0))" } ?? version
+    }
+
+    private var retentionLabel: String {
+        HistoryMaintenance.retentionOptions.first { $0.days == historyRetentionDays }?.label ?? "\(historyRetentionDays) 天"
+    }
+
+    private var widgetSyncStatusText: String {
+        WidgetDataStore.syncStatusText(error: widgetSyncError, timestamp: widgetSyncTimestamp)
     }
 
     private func importBackup(from result: Result<URL, Error>) {

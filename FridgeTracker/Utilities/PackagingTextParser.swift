@@ -6,6 +6,32 @@ struct PackagingOCRResult {
     let rawText: String
 }
 
+/// OCR 识别日期的合理性预警：过去的日期多半是生产日期误读，太远的未来日期多半是批号/条码误读。
+/// 只提示不拦截，是否应用由确认页的用户决定。
+enum PackagingDateSanity {
+    static let maxReasonableYearsAhead = 2
+
+    static func warning(for date: Date, relativeTo now: Date = Date(), calendar: Calendar = .current) -> String? {
+        let day = calendar.startOfDay(for: date)
+        let today = calendar.startOfDay(for: now)
+        if day < today {
+            return "识别到的日期已是过去，可能是生产日期或批号，请核对包装"
+        }
+        if let limit = calendar.date(byAdding: .year, value: maxReasonableYearsAhead, to: today), day > limit {
+            return "识别到的日期在 \(maxReasonableYearsAhead) 年以后，可能是批号或误读，请核对包装"
+        }
+        return nil
+    }
+
+    /// 确认页「填入表单」时是否应用当前日期：
+    /// 未识别到日期时始终放行（此时日期只是表单回填值，是否真正写入由表单侧按有无改动判断）；
+    /// 识别到且异常时需要用户显式确认。
+    static func shouldApplyDate(recognized: Bool, warning: String?, userConfirmed: Bool) -> Bool {
+        guard recognized else { return true }
+        return warning == nil || userConfirmed
+    }
+}
+
 struct PackagingTextParser {
     // 容忍「保质期：12个月」「保质期，12个月」等常见标点写法
     private static let shelfLifeRegex = try? NSRegularExpression(pattern: #"保质期[：:，,、]?\s*(\d+)\s*(天|日|个月|月)"#)

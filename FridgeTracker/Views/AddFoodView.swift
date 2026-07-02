@@ -26,6 +26,9 @@ struct AddFoodView: View {
     @State private var notes: String = ""
     @State private var purchaseDate: Date? = nil
     @State private var hasPurchaseDate: Bool = false
+    /// True once the user adjusts the expiry via the date picker or stepper, so typing a known
+    /// name afterward no longer overwrites their chosen date (mirrors the quantity/notes guard).
+    @State private var hasUserAdjustedExpiry: Bool = false
     @State private var lastAutoAppliedName: String?
     @State private var selectedRecentTemplateName: String?
     @State private var showPhotoPicker = false
@@ -64,10 +67,12 @@ struct AddFoodView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { cancel() }
+                        .accessibilityIdentifier("addFood.cancelButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
                         .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityIdentifier("addFood.saveButton")
                 }
             }
             .sheet(isPresented: $showPhotoPicker) {
@@ -90,7 +95,7 @@ struct AddFoodView: View {
                     result: ocrResult,
                     name: $ocrNameCandidate,
                     expiryDate: $ocrExpiryDate,
-                    onApply: applyOCRResult
+                    onApply: applyOCRResult(applyExpiryDate:)
                 )
             }
             .onAppear {
@@ -183,6 +188,7 @@ struct AddFoodView: View {
             }
 
             TextField("食材名称", text: $name)
+                .accessibilityIdentifier("addFood.nameField")
                 .onChange(of: name) { _, newValue in
                     applyHistoryIfNeeded(for: newValue)
                 }
@@ -203,6 +209,7 @@ struct AddFoodView: View {
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("addFood.category.\(cat.rawValue)")
                     }
                 }
                 .padding(.vertical, 4)
@@ -247,6 +254,7 @@ struct AddFoodView: View {
                 return max(0, days)
             },
             set: { newValue in
+                hasUserAdjustedExpiry = true
                 if let newDate = Calendar.current.date(byAdding: .day, value: max(0, newValue), to: baseDateForExpiryDays) {
                     expiryDate = newDate
                 }
@@ -261,11 +269,16 @@ struct AddFoodView: View {
 
     private var dateSection: some View {
         Section("日期") {
-            DatePicker("保质期", selection: $expiryDate, displayedComponents: .date)
+            DatePicker("保质期", selection: Binding(
+                get: { expiryDate },
+                set: { expiryDate = $0; hasUserAdjustedExpiry = true }
+            ), displayedComponents: .date)
+            .accessibilityIdentifier("addFood.expiryDatePicker")
 
             Stepper(value: expiryDaysBinding, in: 0...3650) {
                 Text(expiryDaysDescription)
             }
+            .accessibilityIdentifier("addFood.expiryStepper")
 
             Toggle("记录购买日期", isOn: $hasPurchaseDate)
             if hasPurchaseDate {
@@ -280,8 +293,26 @@ struct AddFoodView: View {
     private var otherSection: some View {
         Section("其他") {
             TextField("数量（可选）", text: $quantity)
+                .accessibilityIdentifier("addFood.quantityField")
+            if let quantityModeHint {
+                Text(quantityModeHint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             TextField("备注（可选）", text: $notes)
+                .accessibilityIdentifier("addFood.notesField")
         }
+    }
+
+    /// 数量有两种模式：能解析成「N」或「M/N + 单位」的按份数计数，其余按自由文本仅展示。
+    /// 在输入时就把模式说清楚，避免消耗自由文本数量时「整项被移除」显得意外。
+    private var quantityModeHint: String? {
+        let trimmed = quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let parsed = FoodQuantity.parse(trimmed) {
+            return "按份数计数：\(parsed.displayText)，每次\(category.consumeVerb)掉/扔掉减 1 份"
+        }
+        return "自由文本数量：仅用于展示，\(category.consumeVerb)掉/扔掉时会一次移除整项"
     }
 
     private func rebuildHistoryTemplates() {
@@ -336,7 +367,10 @@ struct AddFoodView: View {
             purchaseDate = templatePurchaseDate
             hasPurchaseDate = true
         }
-        expiryDate = Calendar.current.date(byAdding: .day, value: template.defaultShelfLifeDays, to: Date()) ?? expiryDate
+        // Don't clobber an expiry the user has deliberately set, matching the quantity/notes guard above.
+        if !hasUserAdjustedExpiry {
+            expiryDate = Calendar.current.date(byAdding: .day, value: template.defaultShelfLifeDays, to: Date()) ?? expiryDate
+        }
         lastAutoAppliedName = trimmedName
         selectedRecentTemplateName = trimmedName
     }
@@ -404,12 +438,20 @@ struct AddFoodView: View {
         }
     }
 
-    private func applyOCRResult() {
+    private func applyOCRResult(applyExpiryDate: Bool) {
+        // 只有 OCR 真识别到日期、或用户在确认页手动改过日期时才写入并立 hasUserAdjustedExpiry 守卫
+        //（守卫会挡住名称触发的历史模板保质期自动填充）。识别失败时确认页里的日期只是表单回填值
+        //（ocrExpiryDate 以 expiryDate 播种，两者相等即未改动），写回是 no-op，误立守卫反而
+        // 让「扫到名称没扫到日期」的常见场景丢失历史保质期。
+        let dateIsMeaningful = ocrResult?.expiryDate != nil || ocrExpiryDate != expiryDate
+        if applyExpiryDate && dateIsMeaningful {
+            hasUserAdjustedExpiry = true
+            expiryDate = ocrExpiryDate
+        }
         let trimmedName = ocrNameCandidate.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedName.isEmpty {
             name = trimmedName
         }
-        expiryDate = ocrExpiryDate
         showOCRConfirmation = false
     }
 

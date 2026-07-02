@@ -14,7 +14,20 @@ struct FridgeTrackerApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [FoodItem.self, FoodDispositionRecord.self, ReplenishmentItem.self])
+        .modelContainer(Self.makeModelContainer())
+    }
+
+    /// Production uses the default on-disk store. UI tests launch with `-uitesting` to get a clean,
+    /// isolated in-memory store so they never read or mutate real user data.
+    static func makeModelContainer() -> ModelContainer {
+        let schema = Schema([FoodItem.self, FoodDispositionRecord.self, ReplenishmentItem.self])
+        let inMemory = ProcessInfo.processInfo.arguments.contains("-uitesting")
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        do {
+            return try ModelContainer(for: schema, configurations: configuration)
+        } catch {
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
     }
 
     private func configureTabBarAppearance() {

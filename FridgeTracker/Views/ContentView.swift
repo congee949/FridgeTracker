@@ -42,6 +42,7 @@ enum AppRoute: Hashable {
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: FridgeTab = .food
     @State private var pendingFoodDetailID: UUID?
 
@@ -56,9 +57,21 @@ struct ContentView: View {
             .task {
                 // 启动时刷新小组件快照，并补排所有提醒（覆盖导入、跨设备迁移、授权后追加等场景）
                 WidgetDataStore.refresh(using: modelContext)
+                HistoryMaintenance.pruneIfEnabled(in: modelContext)
                 guard await NotificationManager.shared.isAuthorized() else { return }
                 let items = (try? modelContext.fetch(FetchDescriptor<FoodItem>())) ?? []
                 await NotificationManager.shared.rescheduleAll(for: items)
+            }
+            // 写后投影兜底：任何 SwiftData 保存（含 autosave、未来新增的写入路径）都会触发快照刷新，
+            // 不再依赖每个写入点记得显式调用 WidgetDataStore.refresh
+            .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
+                WidgetDataStore.scheduleRefresh(using: modelContext)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // 回到前台强制刷新，覆盖跨天后快照里过期天数陈旧的情况
+                if phase == .active {
+                    WidgetDataStore.scheduleRefresh(using: modelContext)
+                }
             }
     }
 

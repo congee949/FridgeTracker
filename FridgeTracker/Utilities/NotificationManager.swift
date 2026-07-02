@@ -1,10 +1,22 @@
 import UIKit
 import UserNotifications
 
-class NotificationManager {
+/// 所有调度入口统一在主线程执行，与 SwiftData 写操作天然串行，
+/// 避免快速连续添加/编辑与批量重排并发交错产生重复或丢失的提醒。
+@MainActor
+final class NotificationManager {
     static let shared = NotificationManager()
 
     private init() {}
+
+    /// 重排代次：新一轮 rescheduleAll 会让还挂在 await 上的旧一轮作废，防止互相覆盖。
+    private var rescheduleGeneration = 0
+
+    /// 授权弹窗待决时 usernotificationsd 不响应，add/removePending 内部的同步 XPC
+    ///（dispatch barrier sync）会把调用线程永久卡死——实测：首次保存弹出授权框后
+    /// 立刻滑动消费，主线程直接冻死。所有通知中心变更统一走这条串行队列执行，
+    /// 主线程只负责取模型数据；FIFO 同时保证「先删后加」的顺序不变。
+    private static let centerQueue = DispatchQueue(label: "com.congee.FridgeTracker.notification-center", qos: .utility)
 
     // MARK: - 权限
 
@@ -46,7 +58,7 @@ class NotificationManager {
                 identifier: Self.advanceIdentifier(for: item),
                 title: "食材即将过期",
                 body: "\(item.name) 将在 \(lead) 天后过期",
-                trigger: calendarTrigger(for: advanceDate),
+                trigger: .calendar(reminderComponents(for: advanceDate)),
                 uuid: item.uuid
             )
             scheduled = true
@@ -58,7 +70,7 @@ class NotificationManager {
                 identifier: Self.expiryIdentifier(for: item),
                 title: "食材今天过期",
                 body: "\(item.name) 今天过期，记得尽快处理",
-                trigger: calendarTrigger(for: expiryMorning),
+                trigger: .calendar(reminderComponents(for: expiryMorning)),
                 uuid: item.uuid
             )
             scheduled = true
@@ -70,29 +82,39 @@ class NotificationManager {
                 identifier: Self.expiryIdentifier(for: item),
                 title: isToday ? "食材今天过期" : "食材即将过期",
                 body: isToday ? "\(item.name) 今天过期，记得尽快处理" : "\(item.name) 将在 \(item.daysUntilExpiry) 天后过期",
-                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false),
+                trigger: .interval(60),
                 uuid: item.uuid
             )
         }
     }
 
     func cancelNotification(for item: FoodItem) {
-        // 同时清理旧版本使用的裸 uuid 标识符
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
+        // 同时清理旧版本使用的裸 uuid 标识符；先在主线程取好标识符，变更进串行队列
+        let identifiers = [
             item.uuid.uuidString,
             Self.advanceIdentifier(for: item),
             Self.expiryIdentifier(for: item)
-        ])
+        ]
+        Self.centerQueue.async {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
+        }
     }
 
     /// 只清理本 App 的食材提醒（含已删除食材的孤儿通知），不动其他类型的待发通知。
-    @MainActor
     func rescheduleAll(for items: [FoodItem]) async {
+        rescheduleGeneration += 1
+        let generation = rescheduleGeneration
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
+        // await 期间若有更新一轮重排启动，这一轮的快照已过时，直接放弃
+        guard generation == rescheduleGeneration else { return }
         let ours = pending.map(\.identifier).filter(Self.isFoodReminderIdentifier)
-        center.removePendingNotificationRequests(withIdentifiers: ours)
-        for item in items {
+        Self.centerQueue.async {
+            center.removePendingNotificationRequests(withIdentifiers: ours)
+        }
+        // await 挂起期间用户可能已删除食材：访问已销毁的 @Model 会崩溃（同 FoodDetailView 的存活检查），
+        // 且为已删食材重排会复活刚被 cancel 的孤儿提醒
+        for item in items where item.modelContext != nil && !item.isDeleted {
             scheduleNotification(for: item)
         }
     }
@@ -109,18 +131,20 @@ class NotificationManager {
 
     // MARK: - Private
 
-    private func add(identifier: String, title: String, body: String, trigger: UNNotificationTrigger, uuid: UUID) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-        content.userInfo = ["foodUUID": uuid.uuidString]
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
+    private func add(identifier: String, title: String, body: String, trigger: ReminderTrigger, uuid: UUID) {
+        // 内容在队列里用 Sendable 原始值构造，不带任何 @Model / UN 对象跨线程
+        Self.centerQueue.async {
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            content.userInfo = ["foodUUID": uuid.uuidString]
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger.makeTrigger()))
+        }
     }
 
-    private func calendarTrigger(for date: Date) -> UNCalendarNotificationTrigger {
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
-        return UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+    private func reminderComponents(for date: Date) -> DateComponents {
+        Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
     }
 
     private func reminderDate(byAdding offsetDays: Int, to expiryDate: Date) -> Date? {
@@ -142,6 +166,22 @@ class NotificationManager {
             return 7
         case .dairy, .egg, .vegetable, .fruit, .beverage, .condiment, .snack, .baking, .other:
             return 1
+        }
+    }
+}
+
+/// 触发器的 Sendable 描述：跨线程只传值（DateComponents / 秒数），
+/// UNNotificationTrigger 对象在通知队列里再构造。
+private enum ReminderTrigger {
+    case calendar(DateComponents)
+    case interval(TimeInterval)
+
+    func makeTrigger() -> UNNotificationTrigger {
+        switch self {
+        case .calendar(let components):
+            return UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        case .interval(let seconds):
+            return UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
         }
     }
 }

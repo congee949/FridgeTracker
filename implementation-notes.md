@@ -156,3 +156,69 @@ Full-source review surfaced 5 high / 6 medium / ~13 low findings; user approved 
 
 - Should the immediate fallback reminder (+60 s) instead schedule for the evening (e.g. 20:00) when added during the day? Current choice favors immediacy for soon-expiring purchases.
 - Replenishment quantity copies the last record's in-fridge count (e.g. `1/3个`) — arguably should reset to the package total when re-buying.
+
+---
+
+# Ultracode 审查修复批次 — 2026-07-02（P0 全部 + P1 全部）
+
+依据 `ultracode-review-2026-07-02.md` 的推荐行动清单执行：立即（P0）3 项 + 通知竞态轻修，本轮（P1）3 项，后续（P2）仅记录。只记 material 决策/偏离/取舍。
+
+## Design Decisions
+
+- **Widget 写后投影统一为「显式刷新 + didSave 兜底」双层，而不是替换现有调用。** ContentView 监听 `ModelContext.didSave`（iOS 18+ 起 autosave 也会发），300ms debounce 后刷新快照——任何现在或将来的写入路径都被兜住；现有 9 处显式 `WidgetDataStore.refresh` 保留为即时路径。防自激：`refresh` 只在 `modelContext.hasChanges` 时才 save，刷新自身不再触发 didSave。scenePhase 变 active 时也刷新（顺带覆盖 P2-10 报告里"进前台强制刷新"的建议，处理跨天陈旧）。
+- **App Group 同步状态记录在 UserDefaults.standard（非 App Group）**，键 `widgetLastSyncTimestamp` / `widgetLastSyncError`——只有 app 进程的设置页读它，widget 不需要。失败信息优先于成功时间展示；「小组件」section 提供手动「立即刷新小组件」按钮（报告 P0-3 建议的两点都落了）。
+- **OCR 异常日期采用「警告 + 默认不应用」而非拦截。** `PackagingDateSanity.warning`（纯函数，可单测）判定过去日期 / 超过 2 年的未来日期；确认页异常时显示橙色警告并出现「仍然应用这个保质期」开关（onAppear 时默认关）。`onApply` 改带 Bool：无警告（含用户已把日期改到正常范围）视为确认应用。应用 OCR 日期时先置 `hasUserAdjustedExpiry` 再填名称，防止名称 onChange 触发的历史模板覆盖刚确认的日期。
+- **NotificationManager 整类 @MainActor + rescheduleAll 代次守卫。** 所有调度入口与 SwiftData 写操作天然串行；`rescheduleGeneration` 让还挂在 `pendingNotificationRequests()` await 上的旧一轮重排作废（放弃发生在任何删除之前，最新一轮会完整执行删+排，不留半完成状态）。报告 P0-2 的完整事务边界（actor 队列）被判定为过度设计。
+- **历史清理默认「永久保留」，删除只由用户显式触发。** `HistoryMaintenance.prune` 删 cutoff 前的处置记录 + cutoff 前完成的补货项；待补货与库存永不删。设置页 picker（永久/90/180/365 天）只设策略；真正删除发生在带确认弹窗的「立即清理」或选定期限后的启动自动清理。边界为严格小于（恰好在 cutoff 的记录保留）。
+- **数量双模式显式化而非重建模型。** 沿袭 2026-06-10 的偏离决定（不支持小数/中文数量解析），本轮把隐式行为说明白：AddFoodView 数量输入下实时提示当前模式（按份数计数 vs 自由文本整项移除）；详情页确认弹窗对自由文本数量明说「移除整项并计入历史」，不再沿用「减 1 份」误导。`FoodItem.hasCountableQuantity` 承载判定。
+- **深链路由改同步直查，彻底去掉时序依赖。** `FoodItem.find(uuid:in:)` 用 FetchDescriptor 直接查库（fetchLimit 1），`resolvePendingDetail` 不再等 `@Query` 加载、不再靠 `allItems.count` 变化重试；查不到即视为已删并清除 pending。
+
+## Deviations
+
+- **深链未按报告建议"提升到 ContentView/AppDelegate 层"。** fetch 直查后时序问题不存在了，把 NavigationStack 迁到更高层是无收益的大手术。报告目标（健壮化）达成，手段不同。
+- **OCR 确认页未做成"字段级勾选"。** 报告说"默认不勾选"，实现为仅异常日期时出现单个开关；正常日期不增加交互负担。
+- **报告 P0-2（通知竞态）未做完整 actor 事务边界**，用 @MainActor + 代次守卫的轻量组合覆盖实际风险场景（快速连续编辑、设置连点、导入+改设置交错）。
+
+## Tradeoffs
+
+- **didSave 兜底刷新有 300ms 合并窗口**：批量导入几百条只触发一次整写快照，代价是极端情况下 widget 快照晚 300ms——不可感知。
+- **prune 用 fetch-全量-逐删而非 `ModelContext.delete(model:where:)` 批删**：批删谓词对可选 `completedAt` 的支持不稳（Xcode 26 SwiftData #Predicate 限制），fetch 后内存过滤在 3000 条量级实测秒内（有性能测试锁定上界 5s）。
+- **清理策略会同步缩小「历史」页建议和自动补货统计的样本窗口**（它们由处置记录驱动）——这是用户选择保留期的自然含义，caption 里写明。
+- **@AppStorage 与 `HistoryMaintenance.retentionDays` 双读路径**（视图绑定 vs 启动清理）共享同一键、同一默认值 -1，未抽公共访问器——两处常量相邻可见，抽象不划算。
+
+## Adversarial Review（五路镜头 + 逐条反驳验证，18 agents）
+
+13 条发现 → 确认 10（去重后 8 个独立问题，全部 P2）→ **全部当场修复**；驳回 3。确认项及处置：
+
+1. **rescheduleAll 的 await 窗口内被删除的 @Model 会被访问**（崩溃/孤儿通知）→ 循环加存活过滤 `modelContext != nil && !isDeleted`（沿用 FoodDetailView 的既有范式）。
+2. **-uitesting 隔离不完整**：didSave→refresh 管道让 UI 测试把内存假数据写进真实 App Group 快照 + WidgetCenter reload + UserDefaults 同步状态 → WidgetDataStore.refresh/scheduleRefresh 统一短路 `-uitesting`（单一咽喉点，覆盖启动/didSave/scenePhase/手动全部入口，也顺带修掉上一批遗留的启动空快照污染）。
+3. **refresh 的 fetch 失败分支不记状态**，设置页停留在「同步正常」假象 → 改 do/catch 调 recordSyncFailure（注：另一路 verifier 认为该场景现实不可达而驳回同一发现；采纳修复因为它是三条失败路径中唯一不对称的一条，一行成本换状态语义完整）。
+4. **单测把 historyRetentionDays 写进宿主 app 真实 UserDefaults.standard**（TEST_HOST 注入 + 无 -uitesting + 启动 pruneIfEnabled = 崩溃残留会静默清真实历史；tearDown 还会反向重置开发者自选的保留期）→ HistoryMaintenance 改 defaults 可注入，测试用隔离 suite + removePersistentDomain。
+5. **OCR 未识别到日期时误立 hasUserAdjustedExpiry 守卫**（两路独立发现同一回归：扫到名称没扫到日期 → 历史模板保质期不再自动填充，静默停在通用 +7 天）→ applyOCRResult 只在「真识别到日期或用户在确认页改过日期」时写入并立守卫（ocrExpiryDate 以 expiryDate 播种，相等即未改动）；确认页对未识别情形显示「以上日期为表单当前值」而非误导性的「识别到的日期已是过去」警告。
+6. **OCR「是否应用」决策真值表零覆盖且困在视图闭包里** → 提炼 `PackagingDateSanity.shouldApplyDate(recognized:warning:userConfirmed:)` 纯函数 + 真值表测试；verifier 同时纠正了「赋值顺序 load-bearing」的错误注释（SwiftUI onChange 在事务后触发，守卫只需与 name 赋值同事务）。
+7. **同步状态记录（修复 2 的交付物）无测试** → recordSyncSuccess/Failure 改 defaults/now 可注入、状态文案提炼 syncStatusText 纯函数，新增 WidgetSyncStatusTests（7 用例，隔离 suite——宿主 app 的刷新路径也写同名键，用 standard 会互相污染）。
+
+驳回 3 条（详见 workflow 输出）：「>2 年默认不应用误伤长保质期商品」——这正是本批规格本身，三层可见信号非静默；「fetch 失败场景不可达」——与确认项 3 冲突，按上述理由仍修；「5 秒性能断言会抖动」——实测 0.5s 有 10 倍余量、仓库无 CI。
+
+## UI 测试失败排查 → 发现真实 P0：授权弹窗待决时主线程同步 XPC 冻死
+
+`testConsumingMultiUnitItemDecrementsAndKeepsRow` 在擦净的模拟器上确定性失败（快照超时 ×3）。用 `sample` 抓挂起窗口内的主线程栈，3454/3454 采样全部卡在：
+`reduceQuantityOrRemove → cancelNotification → UNUserNotificationCenter.removePendingNotificationRequests → _dispatch_lane_barrier_sync`。
+
+**根因**：usernotificationsd 在授权弹窗待决（.notDetermined + 弹窗未答）期间不响应，`add`/`removePendingNotificationRequests` 内部的同步 XPC 屏障会把调用线程永久阻塞。首次保存食材会弹授权框（2026-06-10 批次的设计），此时滑动消费任何食材 → 主线程冻死。**真实用户 bug，非测试基建问题**——开发机上权限早已确定，所以基线测试从未踩中；本批之前的代码同样会冻死，只是没被发现。
+
+**修复**：NotificationManager 所有通知中心变更（add/removePending）统一挪到私有串行 DispatchQueue（FIFO 保证 rescheduleAll「先删后加」的顺序不变）；主线程只读取 @Model 字段并打包 Sendable 原始值（标识符字符串、DateComponents、秒数），UN 对象在队列内构造（新增文件级 `ReminderTrigger` 枚举承载触发器描述）。授权待决时阻塞的是后台 utility 线程，队列内操作在授权解决后按序执行。
+
+## Verification
+
+- 最终全量：**TEST SUCCEEDED** —— 单元 + 快照 207 用例 0 失败（本批新增 35：HistoryMaintenance 边界+性能、PackagingDateSanity 边界+真值表、FoodItem.find、DetailAction 文案分流、hasCountableQuantity、WidgetSyncStatus），UI 7 用例 6 过 + 1 既有 skip、0 失败。
+- UI 测试首轮 2 失败排查结论——`testAddItemAppearsInList` 由 -uitesting 隔离泄漏（didSave 管道触发 WidgetCenter reload churn）导致，审查修复后通过；`testConsumingMultiUnitItemDecrementsAndKeepsRow` 由上述主线程冻死导致（sample 抓栈实证），修复后在擦净模拟器（授权未决的最严苛条件）从 179s 挂死 → 22.6s 通过。
+- 未实机验证：App Group 写失败的真实触发（需要故障注入）、通知实际送达时序。
+
+## P2 待办（本轮明确不做，记录备查）
+
+- 动态 Widget 时间线（按最近到期物品计算下次刷新点，替代固定次日）。
+- 「开封日期 / 开封后 N 天」语义支持（需要新字段 + UI）。
+- 历史归档聚合（90 天后只留统计）+ 备份瘦身。
+- 导入大备份后的通知增量调度（只排"即将过期"子集，避开 iOS 64 条 pending 上限）。
+- 名称模糊匹配 / 同义词机制（"牛奶" vs "全脂牛奶"）。

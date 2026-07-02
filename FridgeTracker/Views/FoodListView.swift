@@ -60,6 +60,7 @@ struct FoodListView: View {
                         .font(.title2.weight(.semibold))
                         .frame(width: 44, height: 44)
                 }
+                .accessibilityIdentifier("foodList.addButton")
             }
 
             HStack(spacing: 8) {
@@ -68,6 +69,7 @@ struct FoodListView: View {
                 TextField("搜索食材...", text: $viewModel.searchText)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .accessibilityIdentifier("foodList.searchField")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -108,6 +110,7 @@ struct FoodListView: View {
                         } label: {
                             FoodRowView(item: item)
                         }
+                        .accessibilityIdentifier("foodRow.\(item.name)")
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button {
                                 addToReplenishment(item)
@@ -115,6 +118,7 @@ struct FoodListView: View {
                                 Label("加入补货", systemImage: "cart.badge.plus")
                             }
                             .tint(.blue)
+                            .accessibilityIdentifier("foodRow.replenishAction")
 
                             Button {
                                 discardItem(item)
@@ -122,6 +126,7 @@ struct FoodListView: View {
                                 Label("扔掉", systemImage: "xmark.bin")
                             }
                             .tint(.orange)
+                            .accessibilityIdentifier("foodRow.discardAction")
 
                             Button {
                                 consumeItem(item)
@@ -129,6 +134,7 @@ struct FoodListView: View {
                                 Label("\(item.category.consumeVerb)掉", systemImage: "checkmark.circle")
                             }
                             .tint(.green)
+                            .accessibilityIdentifier("foodRow.consumeAction")
                         }
                     }
                 }
@@ -142,7 +148,6 @@ struct FoodListView: View {
                 AddFoodView(storageZone: storageZone ?? .fridge)
             }
             .onChange(of: pendingDetailID) { _, _ in resolvePendingDetail() }
-            .onChange(of: allItems.count) { _, _ in resolvePendingDetail() }
             .onAppear { resolvePendingDetail() }
             .overlay {
                 if filteredItems.isEmpty {
@@ -156,10 +161,14 @@ struct FoodListView: View {
         }
     }
 
+    /// 直接按 uuid 同步查库，不再等 @Query 加载后靠 allItems.count 变化重试——
+    /// fetch 结果与视图更新时机无关，冷启动深链也一次到位；查不到说明食材已删，清掉即可。
     private func resolvePendingDetail() {
-        guard let id = pendingDetailID, !allItems.isEmpty else { return }
-        selectedItem = allItems.first { $0.uuid == id }
+        guard let id = pendingDetailID else { return }
         pendingDetailID = nil
+        if let item = FoodItem.find(uuid: id, in: modelContext) {
+            selectedItem = item
+        }
     }
 
     private func consumeItem(_ item: FoodItem) {
