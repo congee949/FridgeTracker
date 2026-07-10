@@ -28,6 +28,9 @@ ultracode-review-*.md
 docs/shipswift-review.md
 docs/release-notes/*.html
 
+# 一次性工程脚手架（Ruby xcodeproj 脚本，已跑完固化进 pbxproj；本地保留避免 GitHub 误判为 Ruby 项目）
+scripts/
+
 # Verification screenshots & generated source images (artifacts, not source)
 verify-*.png
 device-verify-*.png
