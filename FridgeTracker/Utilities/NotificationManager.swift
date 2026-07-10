@@ -39,6 +39,12 @@ final class NotificationManager {
         return status == .authorized || status == .provisional || status == .ephemeral
     }
 
+    /// 系统层面已拒绝（.denied）——此时调度会静默失败，需在设置页提示用户去系统设置开启。
+    /// notDetermined 不算：那种情况直接请求即可弹框。
+    func isDenied() async -> Bool {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
+    }
+
     // MARK: - 调度
 
     /// 每个食材最多两段提醒：提前 N 天 9:00 + 到期日当天 9:00。

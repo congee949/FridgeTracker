@@ -152,6 +152,7 @@ struct FridgeTrackerWidgetProvider: AppIntentTimelineProvider {
 
 struct FridgeTrackerWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: FridgeTrackerWidgetEntry
 
     private var title: String {
@@ -170,7 +171,8 @@ struct FridgeTrackerWidgetView: View {
         switch family {
         case .systemSmall: return 1
         case .systemMedium: return 3
-        default: return 8
+        // 辅助功能特大字号下每行更高，8 行会挤出大号容器被截断，减到 4 行，其余归入「还有 N 项」
+        default: return dynamicTypeSize.isAccessibilitySize ? 4 : 8
         }
     }
 
@@ -191,7 +193,8 @@ struct FridgeTrackerWidgetView: View {
     }
 
     private var scaleFactor: CGFloat {
-        guard family == .systemLarge else { return 1.0 }
+        // 辅助功能特大字号下不再放大：语义字体本身已很大，再乘会挤出容器
+        guard family == .systemLarge, !dynamicTypeSize.isAccessibilitySize else { return 1.0 }
         let count = visibleItems.count
         guard count > 0 else { return 1.0 }
         let defaultRowHeight: CGFloat = 16
@@ -219,9 +222,17 @@ struct FridgeTrackerWidgetView: View {
 
             if visibleItems.isEmpty {
                 Spacer()
-                Text("暂无快过期食材")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 8) {
+                    if family == .systemLarge {
+                        Image(systemName: "checkmark.circle")
+                            .font(.title)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("暂无快过期食材")
+                        .font(family == .systemLarge ? .headline : .subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
                 Spacer()
             } else if family == .systemSmall, let item = visibleItems.first {
                 Spacer(minLength: 0)
@@ -236,6 +247,8 @@ struct FridgeTrackerWidgetView: View {
                         .foregroundStyle(statusColor(for: item))
                         .lineLimit(1)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(item.name)，\(item.expiryText)，\(item.storageZone)")
                 Spacer(minLength: 0)
             } else {
                 ForEach(visibleItems) { item in
@@ -253,7 +266,15 @@ struct FridgeTrackerWidgetView: View {
             }
         }
         .containerBackground(.background, for: .widget)
-        .widgetURL(foodHomeURL)
+        .widgetURL(widgetURLTarget)
+    }
+
+    /// 小号只显示一项，整卡点按直接深链到该食材详情；中/大号有逐行 Link，整卡兜底回首页。
+    private var widgetURLTarget: URL {
+        if family == .systemSmall, let item = visibleItems.first {
+            return foodDetailURL(for: item)
+        }
+        return foodHomeURL
     }
 
     private func statusColor(for item: ExpiringFoodSnapshot) -> Color {
@@ -310,7 +331,7 @@ struct ExpiringFoodWidgetRow: View {
                     .lineLimit(1)
                 Text(isLarge ? item.category : item.expiryText)
                     .font(detailFont)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(isLarge ? Color.secondary : statusColor)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
@@ -327,6 +348,8 @@ struct ExpiringFoodWidgetRow: View {
                 }
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.name)，\(item.category)，\(item.expiryText)，\(item.storageZone)")
     }
 }
 

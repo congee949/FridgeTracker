@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import UIKit
 
 struct SettingsView: View {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
@@ -9,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(WidgetDataStore.lastSyncTimestampKey) private var widgetSyncTimestamp = 0.0
     @AppStorage(WidgetDataStore.lastSyncErrorKey) private var widgetSyncError = ""
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \FoodItem.createdAt) private var allItems: [FoodItem]
     @ObservedObject private var historySuggestionStore = HistorySuggestionStore.shared
     @State private var exportDocument: FoodBackupDocument?
@@ -16,12 +18,27 @@ struct SettingsView: View {
     @State private var statusMessage: String?
     @State private var showPruneConfirmation = false
     @State private var pruneMessage: String?
+    @State private var notificationsDenied = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("提醒") {
                     Toggle("开启过期提醒", isOn: $notificationsEnabled)
+
+                    if notificationsEnabled && notificationsDenied {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("系统通知已关闭，过期提醒不会触发", systemImage: "bell.slash")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                            Button("前往系统设置开启") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                            .font(.caption)
+                        }
+                    }
 
                     if notificationsEnabled {
                         Picker("默认提前提醒", selection: $reminderDaysBefore) {
@@ -116,6 +133,7 @@ struct SettingsView: View {
                     if enabled {
                         _ = await NotificationManager.shared.requestPermission()
                     }
+                    await refreshNotificationStatus()
                     await NotificationManager.shared.rescheduleAll(for: allItems)
                 }
             }
@@ -123,6 +141,16 @@ struct SettingsView: View {
                 Task { @MainActor in
                     await NotificationManager.shared.rescheduleAll(for: allItems)
                 }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // 已在设置页时，用户去系统设置改完授权切回前台 → 更新/清掉拒绝提示
+                if phase == .active {
+                    Task { await refreshNotificationStatus() }
+                }
+            }
+            .onAppear {
+                // 首次进入 + 每次切回设置页（含在别处刚被拒绝后切来）都同步一次
+                Task { await refreshNotificationStatus() }
             }
             .alert("清理历史记录？", isPresented: $showPruneConfirmation) {
                 Button("取消", role: .cancel) {}
@@ -168,6 +196,11 @@ struct SettingsView: View {
 
     private var widgetSyncStatusText: String {
         WidgetDataStore.syncStatusText(error: widgetSyncError, timestamp: widgetSyncTimestamp)
+    }
+
+    @MainActor
+    private func refreshNotificationStatus() async {
+        notificationsDenied = await NotificationManager.shared.isDenied()
     }
 
     private func importBackup(from result: Result<URL, Error>) {
