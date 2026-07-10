@@ -21,6 +21,13 @@ xcuserdata/
 # Tooling
 .superpowers/
 
+# 个人过程产物：实现笔记、一次性审查报告、生成的 HTML 阅读页（本地保留，不入库）
+implementation-notes.md
+ultracode-review-*.md
+*-shipswift-review.md
+docs/shipswift-review.md
+docs/release-notes/*.html
+
 # Verification screenshots & generated source images (artifacts, not source)
 verify-*.png
 device-verify-*.png
