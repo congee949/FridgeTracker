@@ -48,8 +48,8 @@ FridgeTracker/                  主 app target
 ├── Models/                     FoodItem、FoodTemplate、FoodBackup 等 @Model 与领域类型
 ├── ViewModels/                 FoodListViewModel（列表搜索/分类/排序）
 ├── Views/                      各屏幕：列表、详情、添加、补货、历史、设置
-├── Utilities/                  通知调度、OCR 文本解析、历史建议 store、
-│                                跨 target 共享的 ExpiringFoodSnapshot
+├── Utilities/                  通知调度、OCR 文本解析、历史建议 store（仅主 app 使用）
+├── Shared/                     app 与 Widget 双 target 共享：ExpiringFoodSnapshot（契约定义处）
 └── Assets.xcassets/
 
 FridgeTrackerWidget/            Widget extension target，只读 App Group 里的 JSON 快照
@@ -72,7 +72,7 @@ FridgeTracker (主 app)                                    FridgeTrackerWidget
        └──────────────写─────────▶ expiring-foods.json ──读──▶ 解码渲染
 ```
 
-`FridgeTracker/Utilities/ExpiringFoodSnapshot.swift` 是这套契约的唯一定义处，它以双 target membership 同时编译进主 app 和 Widget——投影和解码用同一个 struct，字段不一致会在编译期报错，不会在运行期悄悄错位。
+`FridgeTracker/Shared/ExpiringFoodSnapshot.swift` 是这套契约的唯一定义处，它以双 target membership 同时编译进主 app 和 Widget——投影和解码用同一个 struct，字段不一致会在编译期报错，不会在运行期悄悄错位。共享代码单独放在 `Shared/`，与仅主 app 使用的 `Utilities/` 区分开，让「谁进 Widget、谁不进」的编译边界一目了然。
 
 ## 测试
 
