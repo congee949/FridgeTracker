@@ -206,11 +206,18 @@
 			children = (
 				FACE00000000000000000003 /* HistorySuggestionStore.swift */,
 				8A53310F77E89B37AB314762 /* NotificationManager.swift */,
-				E00000000000000000000002 /* ExpiringFoodSnapshot.swift */,
 				E00000000000000000000004 /* WidgetDataStore.swift */,
 				F00000000000000000000002 /* PackagingTextParser.swift */,
 			);
 			path = Utilities;
+			sourceTree = "<group>";
+		};
+		5AED00000000000000000001 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				E00000000000000000000002 /* ExpiringFoodSnapshot.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		4319176663AC563F0CE1B424 /* FridgeTrackerTests */ = {
@@ -373,6 +380,7 @@
 				C9E04F99D8E7C9D4D391AEF8 /* Models */,
 				EE1E649591DBDF61DE2E4396 /* ViewModels */,
 				32120412CDF92CE44C01AF8D /* Utilities */,
+				5AED00000000000000000001 /* Shared */,
 				9F58BDF7D4F04F6C4DC3CB6C /* Views */,
 			);
 			path = FridgeTracker;
