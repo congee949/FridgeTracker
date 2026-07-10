@@ -297,6 +297,11 @@ struct ExpiringFoodWidgetRow: View {
         family == .systemLarge
     }
 
+    /// 中号和大号宽度足够放下右侧的到期/存储区列，小号才收窄成单列紧凑布局。
+    private var showsDetailColumn: Bool {
+        family == .systemLarge || family == .systemMedium
+    }
+
     private var statusColor: Color {
         expiryStatusColor(daysUntilExpiry: item.currentDaysUntilExpiry)
     }
@@ -329,13 +334,13 @@ struct ExpiringFoodWidgetRow: View {
                 Text(item.name)
                     .font(nameFont)
                     .lineLimit(1)
-                Text(isLarge ? item.category : item.expiryText)
+                Text(showsDetailColumn ? item.category : item.expiryText)
                     .font(detailFont)
-                    .foregroundStyle(isLarge ? Color.secondary : statusColor)
+                    .foregroundStyle(showsDetailColumn ? Color.secondary : statusColor)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
-            if isLarge {
+            if showsDetailColumn {
                 VStack(alignment: .trailing, spacing: rowDetailSpacing) {
                     Text(item.expiryText)
                         .font(detailFont.weight(.semibold))
@@ -366,6 +371,18 @@ struct FridgeTrackerWidget: Widget {
     }
 }
 
+#Preview(as: .systemSmall) {
+    FridgeTrackerWidget()
+} timeline: {
+    FridgeTrackerWidgetEntry(
+        date: Date(),
+        configuration: FridgeTrackerWidgetConfigurationIntent(),
+        items: [
+            ExpiringFoodSnapshot(id: UUID(), name: "草莓", category: "水果", categoryIcon: "🍎", displayIcon: "🍓", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: -2)
+        ]
+    )
+}
+
 #Preview(as: .systemMedium) {
     FridgeTrackerWidget()
 } timeline: {
@@ -376,6 +393,22 @@ struct FridgeTrackerWidget: Widget {
             ExpiringFoodSnapshot(id: UUID(), name: "牛奶", category: "乳制品", categoryIcon: "🥛", displayIcon: "🥛", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: 1),
             ExpiringFoodSnapshot(id: UUID(), name: "鸡胸肉", category: "肉类", categoryIcon: "🥩", displayIcon: "🥩", storageZone: "冷冻", storageIcon: "🧊", expiryDate: Date(), daysUntilExpiry: 3),
             ExpiringFoodSnapshot(id: UUID(), name: "吐司", category: "烘焙", categoryIcon: "🍞", displayIcon: "🍞", storageZone: "常温", storageIcon: "🏠", expiryDate: Date(), daysUntilExpiry: 4)
+        ]
+    )
+}
+
+#Preview(as: .systemLarge) {
+    FridgeTrackerWidget()
+} timeline: {
+    FridgeTrackerWidgetEntry(
+        date: Date(),
+        configuration: FridgeTrackerWidgetConfigurationIntent(),
+        items: [
+            ExpiringFoodSnapshot(id: UUID(), name: "草莓", category: "水果", categoryIcon: "🍎", displayIcon: "🍓", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: -2),
+            ExpiringFoodSnapshot(id: UUID(), name: "西红柿", category: "蔬菜", categoryIcon: "🥬", displayIcon: "🥬", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: 2),
+            ExpiringFoodSnapshot(id: UUID(), name: "牛奶", category: "乳制品", categoryIcon: "🥛", displayIcon: "🥛", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: 7),
+            ExpiringFoodSnapshot(id: UUID(), name: "三文鱼", category: "海鲜", categoryIcon: "🦐", displayIcon: "🐟", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: 7),
+            ExpiringFoodSnapshot(id: UUID(), name: "鸡蛋", category: "蛋类", categoryIcon: "🥚", displayIcon: "🥚", storageZone: "冷藏", storageIcon: "❄️", expiryDate: Date(), daysUntilExpiry: 21)
         ]
     )
 }
