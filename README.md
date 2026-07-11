@@ -12,6 +12,12 @@
 
 FridgeTracker 是一个 iOS SwiftUI app：录入食材、按分类和存放区（冷藏/冷冻/常温）管理，临近过期时推送本地通知。内置一条辅助闭环：拍照识别包装上的日期文字，一键把识别结果转成补货项，消耗或丢弃食材时记一笔处置记录，再从这些历史记录里生成下一轮的补货建议。
 
+## 架构
+
+![FridgeTracker 架构](architecture.png)
+
+<sub>源文件 `diagram/architecture.svg`（[fireworks-tech-graph](https://github.com/yizhiyanhua-ai/fireworks-tech-graph) Style 6 Claude）。重渲：`cairosvg diagram/architecture.svg -o architecture.png --output-width 1600`。</sub>
+
 ## 界面预览
 
 <table>
