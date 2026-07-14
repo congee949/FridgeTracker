@@ -21,6 +21,7 @@ enum WidgetFoodCategory: String, AppEnum {
     case beverage
     case condiment
     case snack
+    case nut
     case baking
     case frozen
     case other
@@ -37,6 +38,7 @@ enum WidgetFoodCategory: String, AppEnum {
         .beverage: "🧃 饮料",
         .condiment: "🧂 调味品",
         .snack: "🍪 零食",
+        .nut: "🥜 坚果",
         .baking: "🍞 烘焙",
         .frozen: "🧊 速冻食品",
         .other: "📦 其他"
@@ -54,6 +56,7 @@ enum WidgetFoodCategory: String, AppEnum {
         case .beverage: return "饮料"
         case .condiment: return "调味品"
         case .snack: return "零食"
+        case .nut: return "坚果"
         case .baking: return "烘焙"
         case .frozen: return "速冻食品"
         case .other: return "其他"
@@ -72,6 +75,7 @@ enum WidgetFoodCategory: String, AppEnum {
         case .beverage: return "饮料提醒"
         case .condiment: return "调味品提醒"
         case .snack: return "零食提醒"
+        case .nut: return "坚果提醒"
         case .baking: return "烘焙提醒"
         case .frozen: return "速冻提醒"
         case .other: return "其他提醒"
@@ -90,6 +94,7 @@ enum WidgetFoodCategory: String, AppEnum {
         case .beverage: return "饮料"
         case .condiment: return "调味品"
         case .snack: return "零食"
+        case .nut: return "坚果"
         case .baking: return "烘焙"
         case .frozen: return "速冻"
         case .other: return "其他"
