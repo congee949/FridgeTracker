@@ -170,7 +170,7 @@ final class NotificationManager {
             return 2
         case .frozen:
             return 7
-        case .dairy, .egg, .vegetable, .fruit, .beverage, .condiment, .snack, .baking, .other:
+        case .dairy, .egg, .vegetable, .fruit, .beverage, .condiment, .snack, .nut, .baking, .other:
             return 1
         }
     }
