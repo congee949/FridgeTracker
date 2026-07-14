@@ -20,12 +20,10 @@ enum WidgetDataStore {
         qos: .utility
     )
 
-    /// UI 测试用 -uitesting 启动内存假数据库；快照文件和同步状态却是真实共享容器，
-    /// 必须在这里短路，否则跑一遍 UI 测试会把测试数据写上桌面小组件。
-    private static let isUITesting = ProcessInfo.processInfo.arguments.contains("-uitesting")
-
     static func refresh(using modelContext: ModelContext) {
-        guard !isUITesting else { return }
+        // XCTest 的宿主仍拥有正式 App Group entitlement。若不短路，单元测试启动时的空
+        // 内存数据库会把用户/模拟器的真实 Widget 快照覆盖成空数组。
+        guard !AppRuntime.isAutomatedTest() else { return }
         // 投影层只读已提交的主数据，绝不代替业务命令保存或吞掉保存错误。
         // 写入方必须先显式 `modelContext.save()`，成功后才能调用 refresh。
         guard refreshValidationError(hasPendingChanges: modelContext.hasChanges) == nil else {
@@ -47,7 +45,7 @@ enum WidgetDataStore {
     /// 写后投影的兜底入口：ModelContext.didSave 每次保存都会触发，短窗口内合并，
     /// 避免导入等批量写入时反复整写快照。显式调用 refresh 的即时路径不受影响。
     static func scheduleRefresh(using modelContext: ModelContext) {
-        guard !isUITesting else { return }
+        guard !AppRuntime.isAutomatedTest() else { return }
         pendingRefresh?.cancel()
         pendingRefresh = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
@@ -90,7 +88,12 @@ enum WidgetDataStore {
                 if let sizeError = snapshotSizeError(byteCount: data.count) {
                     errorMessage = sizeError
                 } else {
-                    try data.write(to: url, options: [.atomic])
+                    // Widget may refresh while the phone is locked. Keep the shared projection
+                    // available after the first unlock while retaining atomic cross-process reads.
+                    try data.write(
+                        to: url,
+                        options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+                    )
                     errorMessage = nil
                 }
             } catch {

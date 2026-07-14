@@ -315,17 +315,28 @@ final class ExpiringFoodSnapshotTests: XCTestCase {
         XCTAssertTrue(result.isEmpty)
     }
 
-    func testRollingWindowReevaluatesDatesWithoutNewAppSnapshot() throws {
+    func testFutureInventoryBeyondThirtyDaysIsVisibleImmediately() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        let firstTimelineDate = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
-        let expiry = try XCTUnwrap(calendar.date(byAdding: .day, value: 31, to: firstTimelineDate))
-        let item = makeSnapshot(expiryDate: expiry, daysUntilExpiry: 31)
+        let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
+        let expiry = try XCTUnwrap(calendar.date(byAdding: .day, value: 180, to: today))
+        let nut = makeSnapshot(
+            expiryDate: expiry,
+            daysUntilExpiry: 180,
+            name: "核桃",
+            category: "坚果",
+            categoryID: .nut
+        )
 
-        XCTAssertTrue(filteredExpiringFoodSnapshots([item], categoryID: nil, relativeTo: firstTimelineDate, calendar: calendar).isEmpty)
-
-        let nextDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: firstTimelineDate))
-        XCTAssertEqual(filteredExpiringFoodSnapshots([item], categoryID: nil, relativeTo: nextDay, calendar: calendar).map(\.id), [item.id])
+        XCTAssertEqual(
+            filteredExpiringFoodSnapshots(
+                [nut],
+                categoryID: .nut,
+                relativeTo: today,
+                calendar: calendar
+            ).map(\.id),
+            [nut.id]
+        )
     }
 
     func testCategoryFilteringHappensBeforeFiftyItemLimit() throws {

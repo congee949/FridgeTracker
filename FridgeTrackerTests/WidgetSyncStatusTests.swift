@@ -81,4 +81,18 @@ final class WidgetSyncStatusTests: XCTestCase {
         XCTAssertNotNil(message)
         XCTAssertTrue(message?.contains("保留上一次有效数据") == true)
     }
+
+    func testAutomatedTestDetectionCoversUnitAndUITestLaunches() {
+        XCTAssertTrue(AppRuntime.isAutomatedTest())
+        XCTAssertTrue(AppRuntime.isAutomatedTest(arguments: ["FridgeTracker", "-uitesting"], environment: [:]))
+        XCTAssertTrue(AppRuntime.isAutomatedTest(
+            arguments: ["FridgeTracker"],
+            environment: ["XCTestConfigurationFilePath": "/tmp/test.xctestconfiguration"]
+        ))
+        XCTAssertTrue(AppRuntime.isAutomatedTest(
+            arguments: ["FridgeTracker"],
+            environment: ["DYLD_INSERT_LIBRARIES": "/tmp/libXCTestBundleInject.dylib"]
+        ))
+        XCTAssertFalse(AppRuntime.isAutomatedTest(arguments: ["FridgeTracker"], environment: [:]))
+    }
 }

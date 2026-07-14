@@ -4,6 +4,30 @@ import CoreData
 import UIKit
 import UserNotifications
 
+/// App-hosted unit tests launch the real application process before XCTest starts executing test
+/// methods. Relying only on the UI-test `-uitesting` argument lets that host open the production
+/// App Group store and overwrite the Widget snapshot. Keep every automated test in memory and away
+/// from cross-process user data.
+enum AppRuntime {
+    private static let xctestEnvironmentKeys = [
+        "XCTestConfigurationFilePath",
+        "XCTestBundlePath",
+        "XCInjectBundleInto"
+    ]
+
+    nonisolated static func isAutomatedTest(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        if arguments.contains("-uitesting") { return true }
+        if xctestEnvironmentKeys.contains(where: { environment[$0]?.isEmpty == false }) {
+            return true
+        }
+        return environment["DYLD_INSERT_LIBRARIES"]?
+            .localizedCaseInsensitiveContains("XCTest") == true
+    }
+}
+
 @main
 struct FridgeTrackerApp: App {
     @StateObject private var bootstrap: AppBootstrap
@@ -57,7 +81,7 @@ final class AppBootstrap: ObservableObject {
     @Published private(set) var startupError: String?
     @Published private(set) var recoveryURL: URL?
 
-    private let inMemory = ProcessInfo.processInfo.arguments.contains("-uitesting")
+    private let inMemory = AppRuntime.isAutomatedTest()
 
     init() {
         load()

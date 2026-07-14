@@ -289,7 +289,7 @@ func loadFilteredExpiringFoodSnapshots(
     categoryID: FoodCategoryID?,
     relativeTo now: Date,
     calendar: Calendar = .current,
-    dayWindow: ClosedRange<Int> = -14...30,
+    minimumDaysUntilExpiry: Int = -14,
     limit: Int = 50,
     maximumByteCount: Int = expiringFoodsSnapshotMaximumByteCount
 ) async -> [ExpiringFoodSnapshot] {
@@ -321,7 +321,7 @@ func loadFilteredExpiringFoodSnapshots(
                 categoryID: categoryID,
                 relativeTo: now,
                 calendar: calendar,
-                dayWindow: dayWindow,
+                minimumDaysUntilExpiry: minimumDaysUntilExpiry,
                 limit: limit
             )
         } catch {
@@ -337,19 +337,21 @@ func loadFilteredExpiringFoodSnapshots(
     return Task.isCancelled ? [] : result
 }
 
-/// Widget 每次生成 timeline 时重新滚动日期窗口；分类过滤发生在截断之前。
+/// Widget 每次生成 timeline 时重新计算剩余天数；分类过滤发生在截断之前。
+/// 只丢弃已经过期太久的库存，未来到期日不设上限。否则坚果等长保质期食材虽然已经
+/// 从 App 写入共享快照，却会被原来的 30 天上限隐藏，用户看到的结果等同于“未同步”。
 func filteredExpiringFoodSnapshots(
     _ items: [ExpiringFoodSnapshot],
     categoryID: FoodCategoryID?,
     relativeTo now: Date,
     calendar: Calendar = .current,
-    dayWindow: ClosedRange<Int> = -14...30,
+    minimumDaysUntilExpiry: Int = -14,
     limit: Int = 50
 ) -> [ExpiringFoodSnapshot] {
     guard limit > 0 else { return [] }
     return Array(items.lazy
         .filter { item in
-            dayWindow.contains(item.daysUntilExpiry(relativeTo: now, calendar: calendar))
+            item.daysUntilExpiry(relativeTo: now, calendar: calendar) >= minimumDaysUntilExpiry
                 && (categoryID == nil || item.resolvedCategoryID == categoryID)
         }
         .sorted {
