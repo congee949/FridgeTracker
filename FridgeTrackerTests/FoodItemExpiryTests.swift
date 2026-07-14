@@ -136,6 +136,13 @@ final class FoodItemExpiryTests: XCTestCase {
         XCTAssertEqual(item.shelfLifeDaysEstimate, 1)
     }
 
+    func testShelfLifeEstimateCapsUntrustedStoredOriginalAtDomainMaximum() {
+        let item = makeItem(expiryOffset: 6)
+        item.originalShelfLifeDays = .max
+
+        XCTAssertEqual(item.shelfLifeDaysEstimate, FoodShelfLifeConstraints.maximumDays)
+    }
+
     func testShelfLifeEstimateFallbackToDaysUntilExpiry() {
         // Fallback (third) branch requires purchaseDate == nil AND originalShelfLifeDays == nil.
         // Since init() always sets originalShelfLifeDays when purchaseDate is nil, we must null it
@@ -170,6 +177,15 @@ final class FoodItemExpiryTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(item.originalShelfLifeDays), 1)
     }
 
+    func testRefreshCapsFarFutureExpirySoGeneratedBackupsRemainValid() throws {
+        let item = makeItem(expiryOffset: FoodShelfLifeConstraints.maximumDays + 1)
+
+        XCTAssertEqual(
+            try XCTUnwrap(item.originalShelfLifeDays),
+            FoodShelfLifeConstraints.maximumDays
+        )
+    }
+
     func testRefreshClearsOriginalWhenPurchaseDatePresent() {
         // With a purchaseDate, refresh sets originalShelfLifeDays back to nil
         // (the estimate is then computed live from purchaseDate instead of a stored snapshot).
@@ -190,5 +206,71 @@ final class FoodItemExpiryTests: XCTestCase {
         // init -> refreshOriginalShelfLife clears the field whenever a purchaseDate is supplied.
         let item = makeItem(expiryOffset: 4, purchaseDate: date(daysFromTodayStart: -1))
         XCTAssertNil(item.originalShelfLifeDays)
+    }
+
+    func testTimezoneOnlyCivilDateUpdatePreservesDayAndOriginalShelfLife() throws {
+        let utcPlus14 = try XCTUnwrap(TimeZone(secondsFromGMT: 14 * 3_600))
+        let utcMinus11 = try XCTUnwrap(TimeZone(secondsFromGMT: -11 * 3_600))
+        let expiryDay = try XCTUnwrap(LocalDate(year: 2026, month: 8, day: 10))
+        let originalInstant = try XCTUnwrap(expiryDay.date(in: utcPlus14))
+        let editingInstant = try XCTUnwrap(expiryDay.date(in: utcMinus11))
+        let item = FoodItem(
+            name: "跨时区坚果",
+            category: .nut,
+            storageZone: .pantry,
+            expiryDate: originalInstant
+        )
+        item.expiryDayKey = expiryDay.iso8601DateString
+        item.originalShelfLifeDays = 30
+
+        item.updateCivilDates(purchaseDate: nil, expiryDate: editingInstant, timeZone: utcMinus11)
+
+        XCTAssertEqual(item.expiryDayKey, "2026-08-10")
+        XCTAssertEqual(item.originalShelfLifeDays, 30)
+    }
+
+    func testExplicitExpiryCivilDayChangeAdjustsStoredShelfLifeByDayDelta() throws {
+        let timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 8 * 3_600))
+        let oldDay = try XCTUnwrap(LocalDate(year: 2026, month: 8, day: 10))
+        let newDay = try XCTUnwrap(LocalDate(year: 2026, month: 8, day: 12))
+        let item = FoodItem(
+            name: "核桃",
+            category: .nut,
+            storageZone: .pantry,
+            expiryDate: try XCTUnwrap(oldDay.date(in: timeZone))
+        )
+        item.expiryDayKey = oldDay.iso8601DateString
+        item.originalShelfLifeDays = 30
+
+        item.updateCivilDates(
+            purchaseDate: nil,
+            expiryDate: try XCTUnwrap(newDay.date(in: timeZone)),
+            timeZone: timeZone
+        )
+
+        XCTAssertEqual(item.expiryDayKey, "2026-08-12")
+        XCTAssertEqual(item.originalShelfLifeDays, 32)
+    }
+
+    func testCivilDateAdjustmentCannotOverflowOrEscapeShelfLifeDomain() throws {
+        let timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let oldDay = try XCTUnwrap(LocalDate(year: 2026, month: 1, day: 1))
+        let newDay = try XCTUnwrap(LocalDate(year: 2036, month: 1, day: 2))
+        let item = FoodItem(
+            name: "长期储存",
+            category: .other,
+            storageZone: .freezer,
+            expiryDate: try XCTUnwrap(oldDay.date(in: timeZone))
+        )
+        item.expiryDayKey = oldDay.iso8601DateString
+        item.originalShelfLifeDays = .max
+
+        item.updateCivilDates(
+            purchaseDate: nil,
+            expiryDate: try XCTUnwrap(newDay.date(in: timeZone)),
+            timeZone: timeZone
+        )
+
+        XCTAssertEqual(item.originalShelfLifeDays, FoodShelfLifeConstraints.maximumDays)
     }
 }

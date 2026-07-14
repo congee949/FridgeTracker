@@ -10,16 +10,16 @@ final class WidgetSyncStatusTests: XCTestCase {
     private static let defaultsSuiteName = "WidgetSyncStatusTests"
     private var defaults: UserDefaults!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         defaults = UserDefaults(suiteName: Self.defaultsSuiteName)!
         defaults.removePersistentDomain(forName: Self.defaultsSuiteName)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: Self.defaultsSuiteName)
         defaults = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     // MARK: - 状态记录
@@ -65,5 +65,20 @@ final class WidgetSyncStatusTests: XCTestCase {
         let text = WidgetDataStore.syncStatusText(error: "", timestamp: Date().timeIntervalSince1970)
         XCTAssertNotEqual(text, "尚未同步")
         XCTAssertFalse(text.isEmpty)
+    }
+
+    func testProjectionRejectsPendingBusinessChangesInsteadOfSavingThem() {
+        XCTAssertEqual(
+            WidgetDataStore.refreshValidationError(hasPendingChanges: true),
+            WidgetDataStore.pendingChangesError
+        )
+        XCTAssertNil(WidgetDataStore.refreshValidationError(hasPendingChanges: false))
+    }
+
+    func testSnapshotByteBudgetPreservesLastGoodProjection() {
+        XCTAssertNil(WidgetDataStore.snapshotSizeError(byteCount: WidgetDataStore.maximumSnapshotSize))
+        let message = WidgetDataStore.snapshotSizeError(byteCount: WidgetDataStore.maximumSnapshotSize + 1)
+        XCTAssertNotNil(message)
+        XCTAssertTrue(message?.contains("保留上一次有效数据") == true)
     }
 }

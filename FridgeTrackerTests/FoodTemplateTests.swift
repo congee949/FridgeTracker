@@ -326,6 +326,17 @@ final class FoodTemplateTests: XCTestCase {
         XCTAssertEqual(templates.map(\.name), ["B", "C", "A"])
     }
 
+    func testFromHistoryUsesStableNameOrderWhenUniqueSourcesHaveEqualDates() {
+        let sameDate = dayAligned(-1)
+        let milk = makeItem(name: "牛奶", expiryDate: dayAligned(3), createdAt: sameDate)
+        let apple = makeItem(name: "苹果", expiryDate: dayAligned(3), createdAt: sameDate)
+
+        let forward = FoodTemplate.fromHistory([milk, apple])
+        let reversed = FoodTemplate.fromHistory([apple, milk])
+
+        XCTAssertEqual(forward.map(\.normalizedName), reversed.map(\.normalizedName))
+    }
+
     func testFromHistoryMultipleNamesEachKeepNewestSource() {
         // Two names, each appearing in both items and records at different times.
         let appleOld = makeItem(name: "苹果", category: .other, expiryDate: dayAligned(3), createdAt: dayAligned(-4))

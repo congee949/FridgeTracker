@@ -18,22 +18,23 @@ final class HistoryMaintenanceTests: XCTestCase {
     private static let defaultsSuiteName = "HistoryMaintenanceTests"
     private var defaults: UserDefaults!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         defaults = UserDefaults(suiteName: Self.defaultsSuiteName)!
         defaults.removePersistentDomain(forName: Self.defaultsSuiteName)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: Self.defaultsSuiteName)
         defaults = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     private func date(daysAgo: Int) -> Date {
         calendar.date(byAdding: .day, value: -daysAgo, to: now)!
     }
 
+    @discardableResult
     private func makeRecord(in context: ModelContext, daysAgo: Int, name: String = "牛奶") -> FoodDispositionRecord {
         let record = FoodDispositionRecord(
             uuid: UUID(), foodName: name, category: .dairy, storageZone: .fridge,
@@ -44,6 +45,7 @@ final class HistoryMaintenanceTests: XCTestCase {
         return record
     }
 
+    @discardableResult
     private func makeReplenishment(in context: ModelContext, createdDaysAgo: Int, completedDaysAgo: Int?) -> ReplenishmentItem {
         let item = ReplenishmentItem(
             uuid: UUID(), name: "鸡蛋", category: .egg, storageZone: .fridge,

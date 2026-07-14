@@ -3,8 +3,8 @@ import SwiftData
 @testable import FridgeTracker
 
 /// Regression baseline for the auto-replenishment business rules implemented as static
-/// methods on `ReplenishmentItem` (`FridgeTracker/Models/FoodItem.swift`): `addIfAbsent`,
-/// `autoAddIfNeeded`, the `autoReplenishThreshold`, and the 30-day consumed-records window.
+/// methods on `ReplenishmentItem` (`FridgeTracker/Models/FoodItem.swift`): the throwing
+/// transaction primitives, `autoReplenishThreshold`, and the 30-day consumed-records window.
 @MainActor
 final class ReplenishmentItemTests: XCTestCase {
 
@@ -55,15 +55,15 @@ final class ReplenishmentItemTests: XCTestCase {
 
     func testAddIfAbsentInsertsWhenNoneExists() throws {
         let context = try makeContext()
-        let inserted = ReplenishmentItem.addIfAbsent(for: makeItem(name: "牛奶"), in: context)
+        let inserted = try ReplenishmentItem.addIfAbsentOrThrow(for: makeItem(name: "牛奶"), in: context)
         XCTAssertTrue(inserted)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "牛奶"), 1)
     }
 
     func testAddIfAbsentReturnsFalseWhenActiveExists() throws {
         let context = try makeContext()
-        XCTAssertTrue(ReplenishmentItem.addIfAbsent(for: makeItem(name: "牛奶"), in: context))
-        let second = ReplenishmentItem.addIfAbsent(for: makeItem(name: "牛奶"), in: context)
+        XCTAssertTrue(try ReplenishmentItem.addIfAbsentOrThrow(for: makeItem(name: "牛奶"), in: context))
+        let second = try ReplenishmentItem.addIfAbsentOrThrow(for: makeItem(name: "牛奶"), in: context)
         XCTAssertFalse(second)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "牛奶"), 1)
     }
@@ -74,7 +74,7 @@ final class ReplenishmentItemTests: XCTestCase {
         completed.completedAt = Date()
         context.insert(completed)
 
-        let inserted = ReplenishmentItem.addIfAbsent(for: makeItem(name: "牛奶"), in: context)
+        let inserted = try ReplenishmentItem.addIfAbsentOrThrow(for: makeItem(name: "牛奶"), in: context)
         XCTAssertTrue(inserted, "a completed item should not block a fresh active one")
         XCTAssertEqual(try activeReplenishmentCount(context, name: "牛奶"), 1)
     }
@@ -86,7 +86,7 @@ final class ReplenishmentItemTests: XCTestCase {
         insertRecord(context, name: "酸奶", action: .consumed, daysAgo: 1)
         insertRecord(context, name: "酸奶", action: .consumed, daysAgo: 5)
 
-        ReplenishmentItem.autoAddIfNeeded(for: makeItem(name: "酸奶"), in: context)
+        try ReplenishmentItem.autoAddIfNeededOrThrow(for: makeItem(name: "酸奶"), in: context)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "酸奶"), 1)
     }
 
@@ -94,7 +94,7 @@ final class ReplenishmentItemTests: XCTestCase {
         let context = try makeContext()
         insertRecord(context, name: "酸奶", action: .consumed, daysAgo: 1)
 
-        ReplenishmentItem.autoAddIfNeeded(for: makeItem(name: "酸奶"), in: context)
+        try ReplenishmentItem.autoAddIfNeededOrThrow(for: makeItem(name: "酸奶"), in: context)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "酸奶"), 0)
     }
 
@@ -103,7 +103,7 @@ final class ReplenishmentItemTests: XCTestCase {
         insertRecord(context, name: "酸奶", action: .consumed, daysAgo: 40)
         insertRecord(context, name: "酸奶", action: .consumed, daysAgo: 45)
 
-        ReplenishmentItem.autoAddIfNeeded(for: makeItem(name: "酸奶"), in: context)
+        try ReplenishmentItem.autoAddIfNeededOrThrow(for: makeItem(name: "酸奶"), in: context)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "酸奶"), 0)
     }
 
@@ -112,7 +112,7 @@ final class ReplenishmentItemTests: XCTestCase {
         insertRecord(context, name: "酸奶", action: .discarded, daysAgo: 1)
         insertRecord(context, name: "酸奶", action: .discarded, daysAgo: 2)
 
-        ReplenishmentItem.autoAddIfNeeded(for: makeItem(name: "酸奶"), in: context)
+        try ReplenishmentItem.autoAddIfNeededOrThrow(for: makeItem(name: "酸奶"), in: context)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "酸奶"), 0)
     }
 
@@ -122,7 +122,7 @@ final class ReplenishmentItemTests: XCTestCase {
         insertRecord(context, name: "面包", action: .consumed, daysAgo: 2)
 
         // Records belong to 面包; querying for 酸奶 must not trigger an add.
-        ReplenishmentItem.autoAddIfNeeded(for: makeItem(name: "酸奶"), in: context)
+        try ReplenishmentItem.autoAddIfNeededOrThrow(for: makeItem(name: "酸奶"), in: context)
         XCTAssertEqual(try activeReplenishmentCount(context, name: "酸奶"), 0)
     }
 }

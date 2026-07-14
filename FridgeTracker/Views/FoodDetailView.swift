@@ -10,6 +10,7 @@ struct FoodDetailView: View {
     @State private var showDiscardReplenishPrompt = false
     @State private var statusMessage: String?
     @State private var statusMessageToken = UUID()
+    @State private var operationError: String?
 
     private var expiryColor: Color { expiryStatusColor(daysUntilExpiry: item.daysUntilExpiry) }
     private var expiryText: String { expiryStatusText(daysUntilExpiry: item.daysUntilExpiry) }
@@ -58,11 +59,11 @@ struct FoodDetailView: View {
                     Divider().padding(.leading, 16)
                     InfoRow(label: "存储区域", value: "\(item.storageZone.icon) \(item.storageZone.rawValue)")
                     Divider().padding(.leading, 16)
-                    if let purchaseDate = item.purchaseDate {
+                    if let purchaseDate = item.purchaseLocalDate?.date() {
                         InfoRow(label: "购买日期", value: purchaseDate.formatted(date: .abbreviated, time: .omitted))
                         Divider().padding(.leading, 16)
                     }
-                    InfoRow(label: "保质期", value: item.expiryDate.formatted(date: .abbreviated, time: .omitted))
+                    InfoRow(label: "保质期", value: (item.expiryLocalDate.date() ?? item.expiryDate).formatted(date: .abbreviated, time: .omitted))
                     if let quantity = item.quantityDisplayText, !quantity.isEmpty {
                         Divider().padding(.leading, 16)
                         InfoRow(label: "数量", value: quantity)
@@ -160,21 +161,38 @@ struct FoodDetailView: View {
         }
         .alert("加入补货清单？", isPresented: $showDiscardReplenishPrompt) {
             Button("不用了", role: .cancel) {
-                deleteItem()
+                finalizeDiscard(addToReplenishment: false)
             }
             Button("加入") {
-                addDiscardedToReplenishment()
-                deleteItem()
+                finalizeDiscard(addToReplenishment: true)
             }
         } message: {
             Text("是否将「\(item.name)」加入补货清单？")
         }
+        .alert("操作未保存", isPresented: Binding(
+            get: { operationError != nil },
+            set: { if !$0 { operationError = nil } }
+        )) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(operationError ?? "未知错误")
+        }
     }
 
     private func addToReplenishment() {
-        let inserted = ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
-        showStatus(inserted ? "已加入补货清单" : "已在补货清单中")
-        WidgetDataStore.refresh(using: modelContext)
+        do {
+            let inserted = try ReplenishmentItem.addIfAbsentOrThrow(for: item, in: modelContext)
+            guard inserted else {
+                showStatus("已在补货清单中")
+                return
+            }
+            if commitMutation(refreshWidget: false) {
+                showStatus("已加入补货清单")
+            }
+        } catch {
+            modelContext.rollback()
+            operationError = error.localizedDescription
+        }
     }
 
     private func showStatus(_ message: String) {
@@ -192,48 +210,76 @@ struct FoodDetailView: View {
         switch pendingAction {
         case .consumed:
             modelContext.insert(FoodDispositionRecord(item: item, action: .consumed))
-            ReplenishmentItem.autoAddIfNeeded(for: item, in: modelContext)
-            reduceQuantityOrDelete(statusPrefix: "已\(item.category.consumeVerb)掉 1 份")
-        case .discarded:
-            modelContext.insert(FoodDispositionRecord(item: item, action: .discarded))
+            do {
+                try ReplenishmentItem.autoAddIfNeededOrThrow(for: item, in: modelContext)
+            } catch {
+                modelContext.rollback()
+                operationError = error.localizedDescription
+                self.pendingAction = nil
+                return
+            }
             if item.reduceQuantityByOne() {
+                modelContext.delete(item)
+                if commitMutation() { dismiss() }
+            } else if commitMutation() {
+                showQuantityStatus(prefix: "已\(item.category.consumeVerb)掉 1 份")
+            }
+        case .discarded:
+            if nextDispositionRemovesBatch {
                 showDiscardReplenishPrompt = true
             } else {
-                refreshAfterQuantityChange(statusPrefix: "已扔掉 1 份")
+                modelContext.insert(FoodDispositionRecord(item: item, action: .discarded))
+                _ = item.reduceQuantityByOne()
+                if commitMutation() { showQuantityStatus(prefix: "已扔掉 1 份") }
             }
         case .delete:
-            deleteItem()
+            modelContext.delete(item)
+            if commitMutation() { dismiss() }
         }
         self.pendingAction = nil
     }
 
-    private func addDiscardedToReplenishment() {
-        ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
+    private var nextDispositionRemovesBatch: Bool {
+        guard let quantity = FoodQuantity.parse(item.quantity) else { return true }
+        return quantity.current <= 1
     }
 
-    private func deleteItem() {
-        NotificationManager.shared.cancelNotification(for: item)
-        modelContext.delete(item)
-        WidgetDataStore.refresh(using: modelContext)
-        dismiss()
+    private func finalizeDiscard(addToReplenishment: Bool) {
+        modelContext.insert(FoodDispositionRecord(item: item, action: .discarded))
+        if addToReplenishment {
+            do {
+                try ReplenishmentItem.addIfAbsentOrThrow(for: item, in: modelContext)
+            } catch {
+                modelContext.rollback()
+                operationError = error.localizedDescription
+                return
+            }
+        }
+        if item.reduceQuantityByOne() { modelContext.delete(item) }
+        if commitMutation() { dismiss() }
     }
 
-    private func reduceQuantityOrDelete(statusPrefix: String) {
-        if item.reduceQuantityByOne() {
-            deleteItem()
+    private func showQuantityStatus(prefix: String) {
+        if let quantity = item.quantityDisplayText {
+            showStatus("\(prefix)，剩余 \(quantity)")
         } else {
-            refreshAfterQuantityChange(statusPrefix: statusPrefix)
+            showStatus(prefix)
         }
     }
 
-    private func refreshAfterQuantityChange(statusPrefix: String) {
-        NotificationManager.shared.cancelNotification(for: item)
-        NotificationManager.shared.scheduleNotification(for: item)
-        WidgetDataStore.refresh(using: modelContext)
-        if let quantity = item.quantityDisplayText {
-            showStatus("\(statusPrefix)，剩余 \(quantity)")
-        } else {
-            showStatus(statusPrefix)
+    @discardableResult
+    private func commitMutation(refreshWidget: Bool = true) -> Bool {
+        do {
+            try modelContext.save()
+            if refreshWidget { WidgetDataStore.refresh(using: modelContext) }
+            Task { @MainActor in
+                await NotificationManager.shared.reconcile(using: modelContext)
+            }
+            return true
+        } catch {
+            modelContext.rollback()
+            operationError = error.localizedDescription
+            return false
         }
     }
 }

@@ -8,19 +8,26 @@ struct HistoryView: View {
     @State private var searchText = ""
     @State private var selectedCategory: FoodCategory?
     @State private var selectedTemplate: FoodTemplate?
+    @State private var sourceTemplates: [FoodTemplate] = []
+    @State private var hasLoadedHistory = false
 
-    private var historyTemplates: [FoodTemplate] {
-        historySuggestionStore.applyOverrides(to: FoodTemplate.fromHistory(allItems, records: dispositionRecords)).filter { template in
+    private var visibleHistoryTemplates: [FoodTemplate] {
+        historySuggestionStore.applyOverrides(to: sourceTemplates).filter { template in
             let matchesSearch = searchText.isEmpty || template.name.localizedCaseInsensitiveContains(searchText)
             let matchesCategory = selectedCategory == nil || template.category == selectedCategory
             return matchesSearch && matchesCategory
         }
     }
 
+    private var hasActiveFilters: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedCategory != nil
+    }
+
     private var historyHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("历史")
                 .font(.largeTitle.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
 
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -57,6 +64,9 @@ struct HistoryView: View {
     }
 
     var body: some View {
+        // 搜索词和分类变化只过滤缓存；不再为 List 和空态各做一次全量历史聚合。
+        let historyTemplates = visibleHistoryTemplates
+
         NavigationStack {
             VStack(spacing: 0) {
                 historyHeader
@@ -75,9 +85,12 @@ struct HistoryView: View {
                                 Text("\(template.category.rawValue) · \(template.storageZone.rawValue) · 约 \(template.defaultShelfLifeDays) 天")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                    .lineLimit(nil)
                             }
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(template.name)，\(template.category.rawValue)，\(template.storageZone.rawValue)，约 \(template.defaultShelfLifeDays) 天")
                 }
                 .listStyle(.plain)
             }
@@ -85,15 +98,41 @@ struct HistoryView: View {
             .sheet(item: $selectedTemplate) { template in
                 AddFoodView(storageZone: template.storageZone, template: template)
             }
+            .onAppear { rebuildHistoryTemplates() }
+            .onChange(of: allItems.count) { _, _ in rebuildHistoryTemplates() }
+            .onChange(of: dispositionRecords.count) { _, _ in rebuildHistoryTemplates() }
             .overlay {
-                if historyTemplates.isEmpty {
+                if hasLoadedHistory && sourceTemplates.isEmpty {
                     ContentUnavailableView(
                         "暂无历史",
                         systemImage: "clock.arrow.circlepath",
                         description: Text("添加过的食材会出现在这里")
                     )
+                } else if hasLoadedHistory && historyTemplates.isEmpty && hasActiveFilters {
+                    ContentUnavailableView {
+                        Label("没有匹配的历史", systemImage: "line.3.horizontal.decrease.circle")
+                    } description: {
+                        Text("当前搜索或分类下没有结果")
+                    } actions: {
+                        Button("清除筛选") {
+                            searchText = ""
+                            selectedCategory = nil
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                } else if hasLoadedHistory && historyTemplates.isEmpty {
+                    ContentUnavailableView(
+                        "历史建议均已隐藏",
+                        systemImage: "eye.slash",
+                        description: Text("可在设置中的“历史建议管理”重新显示")
+                    )
                 }
             }
         }
+    }
+
+    private func rebuildHistoryTemplates() {
+        sourceTemplates = FoodTemplate.fromHistory(allItems, records: dispositionRecords)
+        hasLoadedHistory = true
     }
 }

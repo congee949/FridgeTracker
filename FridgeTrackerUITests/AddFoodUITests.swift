@@ -17,6 +17,18 @@ final class AddFoodUITests: FridgeUITestCase {
         XCTAssertTrue(list.hasRow("番茄"), "newly added item should appear in the list")
     }
 
+    func testCommittedChineseNameEnablesSaveAndPersists() {
+        let list = FoodListScreen(app: app)
+        let add = list.openAddSheet()
+        XCTAssertTrue(add.waitUntilVisible(), "add sheet did not appear")
+
+        add.enterName("坚果")
+
+        XCTAssertTrue(add.saveButton.isEnabled, "committed Chinese text should enable Save")
+        add.save()
+        XCTAssertTrue(list.hasRow("坚果"), "the committed Chinese name should be persisted")
+    }
+
     func testExpiryStepperIncrementsDaysText() {
         let list = FoodListScreen(app: app)
         let add = list.openAddSheet()
@@ -30,13 +42,10 @@ final class AddFoodUITests: FridgeUITestCase {
         XCTAssertEqual(after, (before ?? 0) + 3, "stepper should drive the expiry days text")
     }
 
-    /// Intended to verify the `applyHistoryIfNeeded` expiry-clobber fix: setting the expiry via the
-    /// stepper and THEN typing a known name must not overwrite the user's date. Skipped because the
-    /// scenario requires re-focusing the name `TextField` immediately after a `Stepper` interaction,
-    /// which the iOS simulator does not reliably do (the keyboard never attaches → `typeText` throws).
-    /// The fix is covered by code review — it mirrors the empty-field guard for quantity/notes that the
-    /// unit suite exercises — and by manual verification.
+    /// iOS 26.5 XCTest can stall the entire test session before launching the runner when this case
+    /// re-focuses a text input after Stepper interaction. The same precedence rule has deterministic
+    /// unit coverage; keep this real interaction as an explicit manual/simulator-runtime gate.
     func testTypingKnownNameDoesNotClobberUserSetExpiry() throws {
-        throw XCTSkip("Simulator cannot reliably re-focus the name field after a stepper interaction; fix verified by inspection.")
+        throw XCTSkip("iOS 26.5 XCTest cannot reliably re-focus text input after Stepper interaction")
     }
 }

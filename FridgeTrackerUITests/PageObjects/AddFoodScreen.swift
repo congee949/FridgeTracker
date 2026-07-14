@@ -2,6 +2,7 @@ import XCTest
 
 /// Page Object for the Add/Edit Food sheet (`AddFoodView`). Wraps element queries behind intent
 /// methods so tests read as user actions and element changes only need updating here.
+@MainActor
 struct AddFoodScreen {
     let app: XCUIApplication
 

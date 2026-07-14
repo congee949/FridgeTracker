@@ -1,5 +1,24 @@
 import Foundation
+import os
 import SwiftData
+
+/// One domain bound shared by live models, history-derived defaults, and backup validation.
+/// Ten years is already beyond normal fridge/pantry use, while keeping the derived integer small
+/// enough that date arithmetic and malicious imports cannot overflow downstream calculations.
+enum FoodShelfLifeConstraints {
+    nonisolated static let maximumDays = 3_650
+
+    nonisolated static func clamped(_ days: Int) -> Int {
+        min(max(days, 1), maximumDays)
+    }
+
+    nonisolated static func addingClamped(_ days: Int, delta: Int) -> Int {
+        let normalized = clamped(days)
+        let (sum, overflow) = normalized.addingReportingOverflow(delta)
+        if overflow { return delta >= 0 ? maximumDays : 1 }
+        return clamped(sum)
+    }
+}
 
 @Model
 class FoodItem {
@@ -10,9 +29,15 @@ class FoodItem {
     var customIcon: String?
     var purchaseDate: Date?
     var expiryDate: Date
+    /// 新模型的权威民用日期。可选只为兼容 1.1.0 旧库的加法迁移。
+    var purchaseDayKey: String?
+    var expiryDayKey: String?
+    /// 稳定英文分类 ID；旧中文 enum 字段保留一个兼容周期。
+    var categoryIDRaw: String?
     var quantity: String?
     var notes: String?
     var createdAt: Date
+    var updatedAt: Date?
     var originalShelfLifeDays: Int?
 
     init(name: String, category: FoodCategory, storageZone: StorageZone, customIcon: String? = nil, purchaseDate: Date? = nil, expiryDate: Date, quantity: String? = nil, notes: String? = nil) {
@@ -23,9 +48,13 @@ class FoodItem {
         self.customIcon = customIcon
         self.purchaseDate = purchaseDate
         self.expiryDate = expiryDate
+        self.purchaseDayKey = purchaseDate.map { LocalDate(date: $0).iso8601DateString }
+        self.expiryDayKey = LocalDate(date: expiryDate).iso8601DateString
+        self.categoryIDRaw = category.stableID.rawValue
         self.quantity = quantity
         self.notes = notes
         self.createdAt = Date()
+        self.updatedAt = self.createdAt
         self.originalShelfLifeDays = nil
         refreshOriginalShelfLife()
     }
@@ -33,20 +62,17 @@ class FoodItem {
     /// 无购买日期时以 createdAt 当天为入库日估算原始保质期；有购买日期时清空（实时按购买日期计算）。
     /// 创建、编辑（改保质期/增删购买日期）、从备份恢复后都应调用，保证估算不随时间衰减。
     func refreshOriginalShelfLife() {
-        if purchaseDate == nil {
-            let days = Calendar.current.dateComponents(
-                [.day],
-                from: Calendar.current.startOfDay(for: createdAt),
-                to: Calendar.current.startOfDay(for: expiryDate)
-            ).day ?? 1
-            originalShelfLifeDays = max(days, 1)
+        synchronizeStableFields()
+        if purchaseLocalDate == nil {
+            let days = LocalDate(date: createdAt).days(until: expiryLocalDate)
+            originalShelfLifeDays = FoodShelfLifeConstraints.clamped(days)
         } else {
             originalShelfLifeDays = nil
         }
     }
 
     var daysUntilExpiry: Int {
-        Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: expiryDate)).day ?? 0
+        LocalDate(date: Date()).days(until: expiryLocalDate)
     }
 
     var isExpired: Bool {
@@ -59,12 +85,12 @@ class FoodItem {
     }
 
     var shelfLifeDaysEstimate: Int {
-        if let purchaseDate {
-            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: purchaseDate), to: Calendar.current.startOfDay(for: expiryDate)).day ?? 1
-            return max(days, 1)
+        if let purchaseLocalDate {
+            let days = purchaseLocalDate.days(until: expiryLocalDate)
+            return FoodShelfLifeConstraints.clamped(days)
         }
-        if let originalShelfLifeDays { return max(originalShelfLifeDays, 1) }
-        return max(daysUntilExpiry, 1)
+        if let originalShelfLifeDays { return FoodShelfLifeConstraints.clamped(originalShelfLifeDays) }
+        return FoodShelfLifeConstraints.clamped(daysUntilExpiry)
     }
 
     var isExpiringSoon: Bool {
@@ -101,8 +127,73 @@ class FoodItem {
             return false
         }
 
-        quantity = current.adding(added).storageText
+        guard let merged = current.adding(added) else { return false }
+        quantity = merged.storageText
+        updatedAt = Date()
         return true
+    }
+
+    var purchaseLocalDate: LocalDate? {
+        purchaseDayKey.flatMap(LocalDate.init(iso8601DateString:))
+            ?? purchaseDate.map { LocalDate(date: $0) }
+    }
+
+    var expiryLocalDate: LocalDate {
+        expiryDayKey.flatMap(LocalDate.init(iso8601DateString:))
+            ?? LocalDate(date: expiryDate)
+    }
+
+    var stableCategoryID: FoodCategoryID {
+        categoryIDRaw.flatMap(FoodCategoryID.init(rawValue:)) ?? category.stableID
+    }
+
+    /// 幂等 backfill：旧库第一次打开以及每次编辑时都可安全调用。
+    func synchronizeStableFields(timeZone: TimeZone = .current) {
+        if purchaseDayKey == nil {
+            purchaseDayKey = purchaseDate.map { LocalDate(date: $0, timeZone: timeZone).iso8601DateString }
+        }
+        if expiryDayKey == nil {
+            expiryDayKey = LocalDate(date: expiryDate, timeZone: timeZone).iso8601DateString
+        }
+        if categoryIDRaw == nil { categoryIDRaw = category.stableID.rawValue }
+        if updatedAt == nil { updatedAt = createdAt }
+    }
+
+    func updateCategory(_ category: FoodCategory) {
+        self.category = category
+        categoryIDRaw = category.stableID.rawValue
+        updatedAt = Date()
+    }
+
+    /// DatePicker 仍以 `Date` 交互，但保存时必须显式重建不随时区漂移的日期键。
+    func updateCivilDates(purchaseDate: Date?, expiryDate: Date, timeZone: TimeZone = .current) {
+        let previousPurchaseDay = purchaseLocalDate
+        let previousExpiryDay = expiryLocalDate
+        let previousOriginalShelfLife = originalShelfLifeDays
+        let nextPurchaseDay = purchaseDate.map { LocalDate(date: $0, timeZone: timeZone) }
+        let nextExpiryDay = LocalDate(date: expiryDate, timeZone: timeZone)
+
+        self.purchaseDate = purchaseDate
+        self.expiryDate = expiryDate
+        purchaseDayKey = nextPurchaseDay?.iso8601DateString
+        expiryDayKey = nextExpiryDay.iso8601DateString
+        updatedAt = Date()
+
+        if nextPurchaseDay != nil {
+            originalShelfLifeDays = nil
+        } else if previousPurchaseDay == nil, let previousOriginalShelfLife {
+            // createdAt has no civil-day key in the legacy schema. Preserve the already-derived
+            // estimate across timezone-only edits, and adjust it only by an explicit expiry-day
+            // delta instead of reinterpreting createdAt in today's timezone.
+            let expiryDelta = previousExpiryDay.days(until: nextExpiryDay)
+            originalShelfLifeDays = FoodShelfLifeConstraints.addingClamped(
+                previousOriginalShelfLife,
+                delta: expiryDelta
+            )
+        } else {
+            // Purchase date was explicitly removed, or a legacy row never had an estimate.
+            refreshOriginalShelfLife()
+        }
     }
 }
 
@@ -158,9 +249,11 @@ struct FoodQuantity {
         return FoodQuantity(current: current - 1, total: total, unit: unit)
     }
 
-    func adding(_ other: FoodQuantity) -> FoodQuantity {
-        let newCurrent = current + other.current
-        let newTotal = total + other.total
+    func adding(_ other: FoodQuantity) -> FoodQuantity? {
+        guard unit == other.unit else { return nil }
+        let (newCurrent, currentOverflow) = current.addingReportingOverflow(other.current)
+        let (newTotal, totalOverflow) = total.addingReportingOverflow(other.total)
+        guard !currentOverflow, !totalOverflow, newCurrent <= 9_999, newTotal <= 9_999 else { return nil }
         return FoodQuantity(current: newCurrent, total: newTotal, unit: unit)
     }
 
@@ -184,7 +277,7 @@ struct FoodQuantity {
     }
 }
 
-enum StorageZone: String, Codable, CaseIterable {
+enum StorageZone: String, Codable, CaseIterable, Sendable {
     case fridge = "冷藏"
     case freezer = "冷冻"
     case pantry = "常温"
@@ -198,7 +291,7 @@ enum StorageZone: String, Codable, CaseIterable {
     }
 }
 
-enum FoodCategory: String, Codable, CaseIterable {
+enum FoodCategory: String, Codable, CaseIterable, Sendable {
     case vegetable = "蔬菜"
     case fruit = "水果"
     case meat = "肉类"
@@ -231,6 +324,43 @@ enum FoodCategory: String, Codable, CaseIterable {
         }
     }
 
+    /// 跨 Widget、备份与未来同步使用的稳定身份；中文 rawValue 仅保留作旧库兼容与展示。
+    var stableID: FoodCategoryID {
+        switch self {
+        case .vegetable: return .vegetable
+        case .fruit: return .fruit
+        case .meat: return .meat
+        case .seafood: return .seafood
+        case .dairy: return .dairy
+        case .egg: return .egg
+        case .beverage: return .beverage
+        case .condiment: return .condiment
+        case .snack: return .snack
+        case .nut: return .nut
+        case .baking: return .baking
+        case .frozen: return .frozen
+        case .other: return .other
+        }
+    }
+
+    init(stableID: FoodCategoryID) {
+        switch stableID {
+        case .vegetable: self = .vegetable
+        case .fruit: self = .fruit
+        case .meat: self = .meat
+        case .seafood: self = .seafood
+        case .dairy: self = .dairy
+        case .egg: self = .egg
+        case .beverage: self = .beverage
+        case .condiment: self = .condiment
+        case .snack: self = .snack
+        case .nut: self = .nut
+        case .baking: self = .baking
+        case .frozen: self = .frozen
+        case .other: self = .other
+        }
+    }
+
     /// 消耗动作的动词词根（吃/喝/用），用于拼接「吃掉」「已吃掉 1 份」等文案。
     var consumeVerb: String {
         switch self {
@@ -241,7 +371,7 @@ enum FoodCategory: String, Codable, CaseIterable {
     }
 }
 
-enum FoodDispositionAction: String, Codable {
+enum FoodDispositionAction: String, Codable, Sendable {
     case consumed
     case discarded
 
@@ -263,9 +393,13 @@ class FoodDispositionRecord {
     var quantity: String?
     var purchaseDate: Date?
     var expiryDate: Date
+    var purchaseDayKey: String?
+    var expiryDayKey: String?
+    var categoryIDRaw: String?
     var shelfLifeDaysEstimate: Int
     var action: FoodDispositionAction
     var createdAt: Date
+    var updatedAt: Date?
 
     init(item: FoodItem, action: FoodDispositionAction) {
         self.uuid = UUID()
@@ -276,13 +410,17 @@ class FoodDispositionRecord {
         self.quantity = item.quantity
         self.purchaseDate = item.purchaseDate
         self.expiryDate = item.expiryDate
+        self.purchaseDayKey = item.purchaseLocalDate?.iso8601DateString
+        self.expiryDayKey = item.expiryLocalDate.iso8601DateString
+        self.categoryIDRaw = item.stableCategoryID.rawValue
         self.shelfLifeDaysEstimate = item.shelfLifeDaysEstimate
         self.action = action
         self.createdAt = Date()
+        self.updatedAt = self.createdAt
     }
 
     /// 字段级 init，供备份恢复使用。
-    init(uuid: UUID, foodName: String, category: FoodCategory, storageZone: StorageZone, customIcon: String?, quantity: String?, purchaseDate: Date?, expiryDate: Date, shelfLifeDaysEstimate: Int, action: FoodDispositionAction, createdAt: Date) {
+    init(uuid: UUID, foodName: String, category: FoodCategory, storageZone: StorageZone, customIcon: String?, quantity: String?, purchaseDate: Date?, expiryDate: Date, shelfLifeDaysEstimate: Int, action: FoodDispositionAction, createdAt: Date, purchaseDayKey: String? = nil, expiryDayKey: String? = nil, categoryIDRaw: String? = nil, updatedAt: Date? = nil) {
         self.uuid = uuid
         self.foodName = foodName
         self.category = category
@@ -291,9 +429,17 @@ class FoodDispositionRecord {
         self.quantity = quantity
         self.purchaseDate = purchaseDate
         self.expiryDate = expiryDate
+        self.purchaseDayKey = purchaseDayKey ?? purchaseDate.map { LocalDate(date: $0).iso8601DateString }
+        self.expiryDayKey = expiryDayKey ?? LocalDate(date: expiryDate).iso8601DateString
+        self.categoryIDRaw = categoryIDRaw ?? category.stableID.rawValue
         self.shelfLifeDaysEstimate = shelfLifeDaysEstimate
         self.action = action
         self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+    }
+
+    var stableCategoryID: FoodCategoryID {
+        categoryIDRaw.flatMap(FoodCategoryID.init(rawValue:)) ?? category.stableID
     }
 }
 
@@ -302,6 +448,7 @@ class ReplenishmentItem {
     var uuid: UUID
     var name: String
     var category: FoodCategory
+    var categoryIDRaw: String?
     var storageZone: StorageZone
     var customIcon: String?
     var quantity: String?
@@ -309,36 +456,42 @@ class ReplenishmentItem {
     var defaultShelfLifeDays: Int
     var createdAt: Date
     var completedAt: Date?
+    var updatedAt: Date?
 
     init(item: FoodItem) {
         self.uuid = UUID()
         self.name = item.name
         self.category = item.category
+        self.categoryIDRaw = item.stableCategoryID.rawValue
         self.storageZone = item.storageZone
         self.customIcon = item.customIcon
         self.quantity = item.quantity
         self.notes = item.notes
         self.defaultShelfLifeDays = item.shelfLifeDaysEstimate
         self.createdAt = Date()
+        self.updatedAt = self.createdAt
     }
 
     init(record: FoodDispositionRecord) {
         self.uuid = UUID()
         self.name = record.foodName
         self.category = record.category
+        self.categoryIDRaw = record.categoryIDRaw ?? record.category.stableID.rawValue
         self.storageZone = record.storageZone
         self.customIcon = record.customIcon
         self.quantity = record.quantity
         self.notes = nil
         self.defaultShelfLifeDays = record.shelfLifeDaysEstimate
         self.createdAt = Date()
+        self.updatedAt = self.createdAt
     }
 
     /// 字段级 init，供备份恢复使用。
-    init(uuid: UUID, name: String, category: FoodCategory, storageZone: StorageZone, customIcon: String?, quantity: String?, notes: String?, defaultShelfLifeDays: Int, createdAt: Date, completedAt: Date?) {
+    init(uuid: UUID, name: String, category: FoodCategory, storageZone: StorageZone, customIcon: String?, quantity: String?, notes: String?, defaultShelfLifeDays: Int, createdAt: Date, completedAt: Date?, categoryIDRaw: String? = nil, updatedAt: Date? = nil) {
         self.uuid = uuid
         self.name = name
         self.category = category
+        self.categoryIDRaw = categoryIDRaw ?? category.stableID.rawValue
         self.storageZone = storageZone
         self.customIcon = customIcon
         self.quantity = quantity
@@ -346,6 +499,11 @@ class ReplenishmentItem {
         self.defaultShelfLifeDays = defaultShelfLifeDays
         self.createdAt = createdAt
         self.completedAt = completedAt
+        self.updatedAt = updatedAt ?? createdAt
+    }
+
+    var stableCategoryID: FoodCategoryID {
+        categoryIDRaw.flatMap(FoodCategoryID.init(rawValue:)) ?? category.stableID
     }
 
     var displayIcon: String {
@@ -358,30 +516,30 @@ class ReplenishmentItem {
 extension ReplenishmentItem {
     static let autoReplenishThreshold = 2
 
-    /// 若同名待补货项尚不存在则插入；返回是否新插入。
+    /// 若同名待补货项尚不存在则插入；调用方必须把此 mutation 纳入显式 save/rollback 事务。
     @discardableResult
-    static func addIfAbsent(for item: FoodItem, in context: ModelContext) -> Bool {
+    static func addIfAbsentOrThrow(for item: FoodItem, in context: ModelContext) throws -> Bool {
         let name = item.name
         let descriptor = FetchDescriptor<ReplenishmentItem>(
             predicate: #Predicate { $0.completedAt == nil && $0.name == name }
         )
-        let existing = (try? context.fetchCount(descriptor)) ?? 0
+        let existing = try context.fetchCount(descriptor)
         guard existing == 0 else { return false }
         context.insert(ReplenishmentItem(item: item))
         return true
     }
 
     /// 当某食材近 30 天内被「吃掉」次数达到阈值时自动加入补货（窗口与「从历史生成」一致）。
-    static func autoAddIfNeeded(for item: FoodItem, in context: ModelContext) {
+    static func autoAddIfNeededOrThrow(for item: FoodItem, in context: ModelContext) throws {
         let name = item.name
         let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
         let descriptor = FetchDescriptor<FoodDispositionRecord>(
             predicate: #Predicate { $0.foodName == name && $0.createdAt >= cutoff }
         )
-        let records = (try? context.fetch(descriptor)) ?? []
+        let records = try context.fetch(descriptor)
         let consumedCount = records.filter { $0.action == .consumed }.count
         guard consumedCount >= autoReplenishThreshold else { return }
-        addIfAbsent(for: item, in: context)
+        try addIfAbsentOrThrow(for: item, in: context)
     }
 }
 
@@ -389,6 +547,11 @@ extension ReplenishmentItem {
 /// 待补货项与当前库存永不清理。默认「永久保留」，只有用户显式选择期限后才会删数据。
 enum HistoryMaintenance {
     static let retentionDaysKey = "historyRetentionDays"
+    static let lastPruneErrorKey = "historyLastPruneError"
+    private static let logger = Logger(
+        subsystem: "com.congee.FridgeTracker",
+        category: "HistoryMaintenance"
+    )
     /// -1 = 永久保留（默认）；其余为保留天数
     static let retentionOptions: [(label: String, days: Int)] = [
         ("永久", -1), ("90 天", 90), ("180 天", 180), ("1 年", 365)
@@ -403,39 +566,71 @@ enum HistoryMaintenance {
 
     /// 启动时按当前策略清理；策略为「永久」时不动任何数据。
     static func pruneIfEnabled(in context: ModelContext, defaults: UserDefaults = .standard, now: Date = Date()) {
+        do {
+            _ = try pruneIfEnabledOrThrow(in: context, defaults: defaults, now: now)
+            defaults.removeObject(forKey: lastPruneErrorKey)
+        } catch {
+            let message = "自动清理历史失败：\(error.localizedDescription)"
+            logger.error("\(message, privacy: .public)")
+            defaults.set(message, forKey: lastPruneErrorKey)
+        }
+    }
+
+    @discardableResult
+    static func pruneIfEnabledOrThrow(
+        in context: ModelContext,
+        defaults: UserDefaults = .standard,
+        now: Date = Date()
+    ) throws -> (records: Int, replenishments: Int) {
         let days = retentionDays(from: defaults)
-        guard days > 0 else { return }
-        prune(in: context, retentionDays: days, now: now)
+        guard days > 0 else { return (0, 0) }
+        return try pruneOrThrow(in: context, retentionDays: days, now: now)
     }
 
     /// 删除 cutoff 之前的处置记录和 cutoff 之前完成的补货项；返回删除数量供设置页展示。
     @discardableResult
     static func prune(in context: ModelContext, retentionDays: Int, now: Date = Date()) -> (records: Int, replenishments: Int) {
+        (try? pruneOrThrow(in: context, retentionDays: retentionDays, now: now)) ?? (0, 0)
+    }
+
+    /// Production callers use the throwing variant so a fetch/save failure cannot be reported as
+    /// “nothing to delete”.  Any partial in-memory deletes are rolled back before the error escapes.
+    @discardableResult
+    static func pruneOrThrow(
+        in context: ModelContext,
+        retentionDays: Int,
+        now: Date = Date()
+    ) throws -> (records: Int, replenishments: Int) {
         guard retentionDays > 0,
               let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: now) else {
             return (0, 0)
         }
 
-        let recordDescriptor = FetchDescriptor<FoodDispositionRecord>(
-            predicate: #Predicate { $0.createdAt < cutoff }
-        )
-        let staleRecords = (try? context.fetch(recordDescriptor)) ?? []
-        staleRecords.forEach(context.delete)
+        do {
+            let recordDescriptor = FetchDescriptor<FoodDispositionRecord>(
+                predicate: #Predicate { $0.createdAt < cutoff }
+            )
+            let staleRecords = try context.fetch(recordDescriptor)
+            staleRecords.forEach(context.delete)
 
-        // completedAt 为可选值，#Predicate 里只筛「已完成」，超龄判断放到内存里做
-        let completedDescriptor = FetchDescriptor<ReplenishmentItem>(
-            predicate: #Predicate { $0.completedAt != nil }
-        )
-        let completed = (try? context.fetch(completedDescriptor)) ?? []
-        let staleReplenishments = completed.filter { item in
-            guard let completedAt = item.completedAt else { return false }
-            return completedAt < cutoff
-        }
-        staleReplenishments.forEach(context.delete)
+            // completedAt 为可选值，#Predicate 里只筛「已完成」，超龄判断放到内存里做
+            let completedDescriptor = FetchDescriptor<ReplenishmentItem>(
+                predicate: #Predicate { $0.completedAt != nil }
+            )
+            let completed = try context.fetch(completedDescriptor)
+            let staleReplenishments = completed.filter { item in
+                guard let completedAt = item.completedAt else { return false }
+                return completedAt < cutoff
+            }
+            staleReplenishments.forEach(context.delete)
 
-        if !staleRecords.isEmpty || !staleReplenishments.isEmpty {
-            try? context.save()
+            if !staleRecords.isEmpty || !staleReplenishments.isEmpty {
+                try context.save()
+            }
+            return (staleRecords.count, staleReplenishments.count)
+        } catch {
+            context.rollback()
+            throw error
         }
-        return (staleRecords.count, staleReplenishments.count)
     }
 }

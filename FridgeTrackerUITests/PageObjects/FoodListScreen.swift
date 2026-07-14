@@ -1,6 +1,7 @@
 import XCTest
 
 /// Page Object for the food list tab (`FoodListView`).
+@MainActor
 struct FoodListScreen {
     let app: XCUIApplication
 

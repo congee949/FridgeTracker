@@ -10,8 +10,15 @@ enum WidgetDataStore {
     /// 设置页「小组件数据同步」状态行读这两个键；仅 app 进程内使用，不需要进 App Group。
     static let lastSyncTimestampKey = "widgetLastSyncTimestamp"
     static let lastSyncErrorKey = "widgetLastSyncError"
+    static let pendingChangesError = "存在未提交的数据变更，已跳过小组件刷新"
+    nonisolated static let maximumSnapshotSize = 10 * 1_024 * 1_024
 
     private static var pendingRefresh: Task<Void, Never>?
+    private static var writeGeneration = 0
+    private static let writeQueue = DispatchQueue(
+        label: "com.congee.FridgeTracker.widget-snapshot",
+        qos: .utility
+    )
 
     /// UI 测试用 -uitesting 启动内存假数据库；快照文件和同步状态却是真实共享容器，
     /// 必须在这里短路，否则跑一遍 UI 测试会把测试数据写上桌面小组件。
@@ -19,11 +26,13 @@ enum WidgetDataStore {
 
     static func refresh(using modelContext: ModelContext) {
         guard !isUITesting else { return }
-        // 只在有未保存变更时 save：refresh 自身不再触发 didSave，避免「保存→观察→刷新→保存」自激
-        if modelContext.hasChanges {
-            try? modelContext.save()
+        // 投影层只读已提交的主数据，绝不代替业务命令保存或吞掉保存错误。
+        // 写入方必须先显式 `modelContext.save()`，成功后才能调用 refresh。
+        guard refreshValidationError(hasPendingChanges: modelContext.hasChanges) == nil else {
+            recordSyncFailure(pendingChangesError)
+            return
         }
-        let descriptor = FetchDescriptor<FoodItem>(sortBy: [SortDescriptor(\FoodItem.expiryDate)])
+        let descriptor = FetchDescriptor<FoodItem>()
         let items: [FoodItem]
         do {
             items = try modelContext.fetch(descriptor)
@@ -53,10 +62,9 @@ enum WidgetDataStore {
             return
         }
 
-        // 小组件定位是「快过期提醒」：只放 30 天内到期的，过期超过 14 天的也不再占位
+        // 快照是当前库存的完整最小投影。日期窗口与分类必须由 Widget 在每次 timeline
+        // 生成时按“今天”计算，否则长期不打开 App 时 31→30 天的食材永远进不了快照。
         let snapshots = items
-            .filter { (-14...30).contains($0.daysUntilExpiry) }
-            .prefix(50)
             .map { item in
                 ExpiringFoodSnapshot(
                     id: item.uuid,
@@ -66,18 +74,37 @@ enum WidgetDataStore {
                     displayIcon: item.displayIcon,
                     storageZone: item.storageZone.rawValue,
                     storageIcon: item.storageZone.icon,
-                    expiryDate: item.expiryDate,
-                    daysUntilExpiry: item.daysUntilExpiry
+                    expiryDate: item.expiryLocalDate.date() ?? item.expiryDate,
+                    daysUntilExpiry: item.daysUntilExpiry,
+                    categoryID: item.stableCategoryID,
+                    expiryDayKey: item.expiryLocalDate
                 )
             }
 
-        do {
-            let data = try JSONEncoder.expiringFoods.encode(Array(snapshots))
-            try data.write(to: url, options: [.atomic])
-            WidgetCenter.shared.reloadAllTimelines()
-            recordSyncSuccess()
-        } catch {
-            recordSyncFailure("写入小组件快照失败：\(error.localizedDescription)")
+        writeGeneration += 1
+        let generation = writeGeneration
+        writeQueue.async {
+            let errorMessage: String?
+            do {
+                let data = try JSONEncoder.expiringFoods.encode(ExpiringFoodSnapshotEnvelope(items: snapshots))
+                if let sizeError = snapshotSizeError(byteCount: data.count) {
+                    errorMessage = sizeError
+                } else {
+                    try data.write(to: url, options: [.atomic])
+                    errorMessage = nil
+                }
+            } catch {
+                errorMessage = "写入小组件快照失败：\(error.localizedDescription)"
+            }
+            Task { @MainActor in
+                guard generation == writeGeneration else { return }
+                if let errorMessage {
+                    recordSyncFailure(errorMessage)
+                } else {
+                    WidgetCenter.shared.reloadAllTimelines()
+                    recordSyncSuccess()
+                }
+            }
         }
     }
 
@@ -97,5 +124,14 @@ enum WidgetDataStore {
         if !error.isEmpty { return error }
         guard timestamp > 0 else { return "尚未同步" }
         return Date(timeIntervalSince1970: timestamp).formatted(date: .abbreviated, time: .shortened)
+    }
+
+    static func refreshValidationError(hasPendingChanges: Bool) -> String? {
+        hasPendingChanges ? pendingChangesError : nil
+    }
+
+    nonisolated static func snapshotSizeError(byteCount: Int) -> String? {
+        guard byteCount > maximumSnapshotSize else { return nil }
+        return "小组件快照过大（\(byteCount / 1_024 / 1_024) MiB），已保留上一次有效数据"
     }
 }

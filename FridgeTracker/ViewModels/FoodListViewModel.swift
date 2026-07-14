@@ -30,7 +30,14 @@ class FoodListViewModel {
         // Sort
         switch sortOption {
         case .expiryDate:
-            result.sort { $0.expiryDate < $1.expiryDate }
+            result.sort {
+                if $0.expiryLocalDate != $1.expiryLocalDate {
+                    return $0.expiryLocalDate < $1.expiryLocalDate
+                }
+                let nameOrder = $0.name.localizedCompare($1.name)
+                if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+                return $0.uuid.uuidString < $1.uuid.uuidString
+            }
         case .createdDate:
             result.sort { $0.createdAt > $1.createdAt }
         case .name:

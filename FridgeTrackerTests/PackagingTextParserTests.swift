@@ -135,6 +135,21 @@ final class PackagingTextParserTests: XCTestCase {
         XCTAssertEqual(result.nameCandidates, ["蒙牛纯牛奶"])
     }
 
+    func testExplicitGregorianYearIsNotReinterpretedByBuddhistDeviceCalendar() throws {
+        var buddhist = Calendar(identifier: .buddhist)
+        buddhist.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let date = PackagingTextParser.expiryDate(from: ["保质期至2026-07-14"], calendar: buddhist)
+
+        var verificationCalendar = Calendar(identifier: .gregorian)
+        verificationCalendar.timeZone = buddhist.timeZone
+        let parsedDate = try XCTUnwrap(date)
+        let components = verificationCalendar.dateComponents([.year, .month, .day], from: parsedDate)
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 7)
+        XCTAssertEqual(components.day, 14)
+    }
+
     // MARK: - nameCandidates filtering & ordering
 
     func testNameCandidatesExcludesBlockedAndNumericLines() {

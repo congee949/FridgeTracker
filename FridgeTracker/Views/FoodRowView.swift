@@ -5,6 +5,14 @@ struct FoodRowView: View {
 
     private var expiryColor: Color { expiryStatusColor(daysUntilExpiry: item.daysUntilExpiry) }
     private var expiryText: String { expiryStatusText(daysUntilExpiry: item.daysUntilExpiry) }
+    private var accessibilityText: String {
+        var components = [item.name, item.category.rawValue]
+        if let quantity = item.quantityDisplayText {
+            components.append("数量 \(quantity)")
+        }
+        components.append(expiryText)
+        return components.joined(separator: "，")
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -24,6 +32,7 @@ struct FoodRowView: View {
                 Text("\(item.category.rawValue)\(item.quantityDisplayText.map { " · \($0)" } ?? "")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(nil)
             }
 
             Spacer()
@@ -38,6 +47,6 @@ struct FoodRowView: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.name)，\(item.category.rawValue)，\(expiryText)")
+        .accessibilityLabel(accessibilityText)
     }
 }

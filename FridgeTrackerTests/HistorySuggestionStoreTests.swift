@@ -19,8 +19,10 @@ import XCTest
 /// only supported reset path is `save` / `removeOverride`; tests track the keys they
 /// touch and clean them up explicitly.
 ///
-/// These are pure-logic tests: they use `FoodTemplate.common` (a plain struct, no
-/// `@Model`), so no `ModelContext` / main actor / container is required.
+/// These are pure-logic tests using `FoodTemplate.common` (a plain struct, no `@Model`),
+/// so no `ModelContext` or container is required. The suite follows the store's `@MainActor`
+/// isolation because it exercises the shared observable singleton.
+@MainActor
 final class HistorySuggestionStoreTests: XCTestCase {
 
     private let defaultsKey = "historySuggestionOverrides"
@@ -30,14 +32,14 @@ final class HistorySuggestionStoreTests: XCTestCase {
 
     private var store: HistorySuggestionStore { .shared }
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         // Snapshot whatever the singleton/app already persisted so we can restore it.
         savedDefaultsPayload = UserDefaults.standard.data(forKey: defaultsKey)
         insertedKeys = []
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         // Remove every override this test added so the in-memory singleton is clean
         // for the next test (overrides is private(set); removeOverride is the only path).
         for key in insertedKeys {
@@ -50,8 +52,9 @@ final class HistorySuggestionStoreTests: XCTestCase {
         } else {
             UserDefaults.standard.removeObject(forKey: defaultsKey)
         }
+        store.reloadFromDefaults()
         savedDefaultsPayload = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     // MARK: - Test helpers
@@ -78,7 +81,11 @@ final class HistorySuggestionStoreTests: XCTestCase {
 
     /// Save through the store and remember the trimmed key for cleanup.
     private func saveTracked(_ override: HistorySuggestionOverride) {
-        store.save(override)
+        do {
+            try store.save(override)
+        } catch {
+            XCTFail("unexpected validation failure: \(error)")
+        }
         insertedKeys.insert(override.name.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
@@ -162,8 +169,9 @@ final class HistorySuggestionStoreTests: XCTestCase {
     }
 
     func testSaveWithBlankNameIsIgnored() {
-        // guard !key.isEmpty: whitespace-only names produce an empty key and are dropped.
-        store.save(makeOverride(name: "   \n  "))
+        XCTAssertThrowsError(try store.save(makeOverride(name: "   \n  "))) { error in
+            XCTAssertEqual(error as? FoodInputValidationError, .empty(field: "食材名称"))
+        }
 
         XCTAssertNil(store.override(for: "   \n  "))
         XCTAssertNil(store.override(for: ""))
@@ -188,6 +196,16 @@ final class HistorySuggestionStoreTests: XCTestCase {
         store.removeOverride(for: "  牛奶  ")
 
         XCTAssertNil(store.override(for: "牛奶"))
+    }
+
+    func testReloadClearsInMemoryOverridesWhenDefaultsKeyWasRemoved() {
+        saveTracked(makeOverride(name: "备份恢复前的旧建议", category: .other))
+        XCTAssertNotNil(store.override(for: "备份恢复前的旧建议"))
+
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
+        store.reloadFromDefaults()
+
+        XCTAssertNil(store.override(for: "备份恢复前的旧建议"))
     }
 
     // MARK: - isHidden

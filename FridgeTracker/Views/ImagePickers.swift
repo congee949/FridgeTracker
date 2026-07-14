@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 import UIKit
 
 struct PackagingPhotoPicker: UIViewControllerRepresentable {
@@ -38,14 +39,17 @@ struct PackagingPhotoPicker: UIViewControllerRepresentable {
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             dismiss()
             guard let provider = results.first?.itemProvider else { return }
-            guard provider.canLoadObject(ofClass: UIImage.self) else {
+            let imageType = UTType.image.identifier
+            guard provider.hasItemConformingToTypeIdentifier(imageType) else {
                 DispatchQueue.main.async { self.onResult(nil) }
                 return
             }
 
-            provider.loadObject(ofClass: UIImage.self) { object, _ in
+            // NSItemProvider callbacks are Sendable in Swift 6. Move only immutable `Data`
+            // between executors, then construct UIKit's non-Sendable UIImage on the main queue.
+            provider.loadDataRepresentation(forTypeIdentifier: imageType) { data, _ in
                 DispatchQueue.main.async {
-                    self.onResult(object as? UIImage)
+                    self.onResult(data.flatMap(UIImage.init(data:)))
                 }
             }
         }

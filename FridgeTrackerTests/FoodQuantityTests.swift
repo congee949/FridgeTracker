@@ -153,26 +153,30 @@ final class FoodQuantityTests: XCTestCase {
 
     // MARK: - adding
 
-    func testAddingCombinesCurrentAndTotalSeparately() {
+    func testAddingCombinesCurrentAndTotalSeparately() throws {
         // newCurrent = current + other.current; newTotal = total + other.total.
         let base = FoodQuantity(current: 2, total: 5, unit: "袋")
         let other = FoodQuantity(current: 3, total: 3, unit: "袋")
-        let sum = base.adding(other)
+        let sum = try XCTUnwrap(base.adding(other))
         XCTAssertEqual(sum.current, 5)
         XCTAssertEqual(sum.total, 8)
         XCTAssertEqual(sum.unit, "袋")
         XCTAssertEqual(sum.displayText, "5/8袋")
     }
 
-    func testAddingKeepsReceiverUnitAndIgnoresOtherUnit() {
-        // adding() never inspects other.unit; it keeps the receiver's unit.
+    func testAddingRejectsDifferentUnit() {
         let base = FoodQuantity(current: 1, total: 1, unit: "瓶")
         let other = FoodQuantity(current: 2, total: 2, unit: "盒")
-        let sum = base.adding(other)
-        XCTAssertEqual(sum.current, 3)
-        XCTAssertEqual(sum.total, 3)
-        XCTAssertEqual(sum.unit, "瓶")
-        XCTAssertEqual(sum.displayText, "3瓶")
+        XCTAssertNil(base.adding(other))
+    }
+
+    func testAddingRejectsOverflowAndBusinessLimit() {
+        let maximum = FoodQuantity(current: 9_999, total: 9_999, unit: "袋")
+        let one = FoodQuantity(current: 1, total: 1, unit: "袋")
+        XCTAssertNil(maximum.adding(one))
+
+        let integerMaximum = FoodQuantity(current: Int.max, total: Int.max, unit: "袋")
+        XCTAssertNil(integerMaximum.adding(integerMaximum))
     }
 
     // MARK: - FoodItem.reduceQuantityByOne()

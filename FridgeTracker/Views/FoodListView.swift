@@ -6,10 +6,11 @@ struct FoodListView: View {
     @Binding var pendingDetailID: UUID?
 
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \FoodItem.expiryDate) private var allItems: [FoodItem]
+    @Query private var allItems: [FoodItem]
     @State private var viewModel = FoodListViewModel()
     @State private var showAddSheet = false
     @State private var selectedItem: FoodItem?
+    @State private var operationError: String?
 
     init(storageZone: StorageZone?, pendingDetailID: Binding<UUID?> = .constant(nil)) {
         self.storageZone = storageZone
@@ -21,10 +22,6 @@ struct FoodListView: View {
         return allItems.filter { $0.storageZone == storageZone }
     }
 
-    private var filteredItems: [FoodItem] {
-        viewModel.filteredItems(zoneItems)
-    }
-
     private var title: String {
         storageZone.map { "\($0.icon) \($0.rawValue)" } ?? "食材"
     }
@@ -34,6 +31,7 @@ struct FoodListView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .font(.largeTitle.weight(.bold))
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Menu {
                     ForEach(SortOption.allCases, id: \.self) { option in
@@ -53,6 +51,8 @@ struct FoodListView: View {
                         .font(.title2.weight(.semibold))
                         .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("排序")
+                .accessibilityValue(viewModel.sortOption.rawValue)
                 Button {
                     showAddSheet = true
                 } label: {
@@ -61,6 +61,7 @@ struct FoodListView: View {
                         .frame(width: 44, height: 44)
                 }
                 .accessibilityIdentifier("foodList.addButton")
+                .accessibilityLabel("添加食材")
             }
 
             HStack(spacing: 8) {
@@ -99,12 +100,16 @@ struct FoodListView: View {
     }
 
     var body: some View {
+        // 同一轮渲染只筛选和排序一次，避免 List 与空态重复执行。
+        let currentZoneItems = zoneItems
+        let currentFilteredItems = viewModel.filteredItems(currentZoneItems)
+
         NavigationStack {
             VStack(spacing: 0) {
                 foodHeader
 
                 List {
-                    ForEach(filteredItems) { item in
+                    ForEach(currentFilteredItems) { item in
                         Button {
                             selectedItem = item
                         } label: {
@@ -150,14 +155,34 @@ struct FoodListView: View {
             .onChange(of: pendingDetailID) { _, _ in resolvePendingDetail() }
             .onAppear { resolvePendingDetail() }
             .overlay {
-                if filteredItems.isEmpty {
+                if currentZoneItems.isEmpty {
                     ContentUnavailableView(
                         "暂无食材",
                         systemImage: "refrigerator",
                         description: Text("点击右上角 + 添加食材")
                     )
+                } else if currentFilteredItems.isEmpty {
+                    ContentUnavailableView {
+                        Label("没有匹配的食材", systemImage: "line.3.horizontal.decrease.circle")
+                    } description: {
+                        Text("当前搜索或分类下没有结果")
+                    } actions: {
+                        Button("清除筛选") {
+                            viewModel.searchText = ""
+                            viewModel.selectedCategory = nil
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
+        }
+        .alert("操作未保存", isPresented: Binding(
+            get: { operationError != nil },
+            set: { if !$0 { operationError = nil } }
+        )) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(operationError ?? "未知错误")
         }
     }
 
@@ -173,35 +198,48 @@ struct FoodListView: View {
 
     private func consumeItem(_ item: FoodItem) {
         modelContext.insert(FoodDispositionRecord(item: item, action: .consumed))
-        ReplenishmentItem.autoAddIfNeeded(for: item, in: modelContext)
-        reduceQuantityOrRemove(item)
+        do {
+            try ReplenishmentItem.autoAddIfNeededOrThrow(for: item, in: modelContext)
+        } catch {
+            modelContext.rollback()
+            operationError = error.localizedDescription
+            return
+        }
+        if item.reduceQuantityByOne() { modelContext.delete(item) }
+        commitInventoryMutation()
     }
 
     private func discardItem(_ item: FoodItem) {
         modelContext.insert(FoodDispositionRecord(item: item, action: .discarded))
-        reduceQuantityOrRemove(item)
+        if item.reduceQuantityByOne() { modelContext.delete(item) }
+        commitInventoryMutation()
     }
 
     private func addToReplenishment(_ item: FoodItem) {
-        ReplenishmentItem.addIfAbsent(for: item, in: modelContext)
-        WidgetDataStore.refresh(using: modelContext)
-    }
-
-    private func reduceQuantityOrRemove(_ item: FoodItem) {
-        if item.reduceQuantityByOne() {
-            removeFromInventory(item)
-        } else {
-            NotificationManager.shared.cancelNotification(for: item)
-            NotificationManager.shared.scheduleNotification(for: item)
-            WidgetDataStore.refresh(using: modelContext)
+        do {
+            guard try ReplenishmentItem.addIfAbsentOrThrow(for: item, in: modelContext) else { return }
+            commitInventoryMutation(refreshWidget: false)
+        } catch {
+            modelContext.rollback()
+            operationError = error.localizedDescription
         }
     }
 
-    private func removeFromInventory(_ item: FoodItem) {
-        NotificationManager.shared.cancelNotification(for: item)
-        modelContext.delete(item)
-        WidgetDataStore.refresh(using: modelContext)
+    private func commitInventoryMutation(refreshWidget: Bool = true) {
+        do {
+            try modelContext.save()
+            if refreshWidget {
+                WidgetDataStore.refresh(using: modelContext)
+            }
+            Task { @MainActor in
+                await NotificationManager.shared.reconcile(using: modelContext)
+            }
+        } catch {
+            modelContext.rollback()
+            operationError = error.localizedDescription
+        }
     }
+
 }
 
 struct CategoryChip: View {
@@ -214,11 +252,14 @@ struct CategoryChip: View {
             Text(title)
                 .font(.subheadline)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
+                .frame(minHeight: 44)
                 .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
-                .foregroundStyle(isSelected ? .white : .primary)
+                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .contentShape(Capsule())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

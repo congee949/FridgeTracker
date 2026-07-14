@@ -3,8 +3,8 @@ import SwiftUI
 import WidgetKit
 
 struct FridgeTrackerWidgetConfigurationIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "显示设置"
-    static var description = IntentDescription("选择这个小组件要显示的食材分类。")
+    static let title: LocalizedStringResource = "显示设置"
+    static let description = IntentDescription("选择这个小组件要显示的食材分类。")
 
     @Parameter(title: "食材分类", default: .all)
     var category: WidgetFoodCategory
@@ -26,8 +26,8 @@ enum WidgetFoodCategory: String, AppEnum {
     case frozen
     case other
 
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "食材分类")
-    static var caseDisplayRepresentations: [WidgetFoodCategory: DisplayRepresentation] = [
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "食材分类")
+    static let caseDisplayRepresentations: [WidgetFoodCategory: DisplayRepresentation] = [
         .all: "全部",
         .vegetable: "🥬 蔬菜",
         .fruit: "🍎 水果",
@@ -44,23 +44,8 @@ enum WidgetFoodCategory: String, AppEnum {
         .other: "📦 其他"
     ]
 
-    var categoryName: String? {
-        switch self {
-        case .all: return nil
-        case .vegetable: return "蔬菜"
-        case .fruit: return "水果"
-        case .meat: return "肉类"
-        case .seafood: return "海鲜"
-        case .dairy: return "乳制品"
-        case .egg: return "蛋类"
-        case .beverage: return "饮料"
-        case .condiment: return "调味品"
-        case .snack: return "零食"
-        case .nut: return "坚果"
-        case .baking: return "烘焙"
-        case .frozen: return "速冻食品"
-        case .other: return "其他"
-        }
+    var categoryID: FoodCategoryID? {
+        self == .all ? nil : FoodCategoryID(rawValue: rawValue)
     }
 
     var title: String {
@@ -123,35 +108,44 @@ struct FridgeTrackerWidgetProvider: AppIntentTimelineProvider {
                     storageZone: "冷藏",
                     storageIcon: "❄️",
                     expiryDate: Date(),
-                    daysUntilExpiry: 1
+                    daysUntilExpiry: 1,
+                    categoryID: .dairy,
+                    expiryDayKey: LocalDate(date: Date())
                 )
             ]
         )
     }
 
     func snapshot(for configuration: FridgeTrackerWidgetConfigurationIntent, in context: Context) async -> FridgeTrackerWidgetEntry {
-        FridgeTrackerWidgetEntry(date: Date(), configuration: configuration, items: loadItems(for: configuration))
+        let now = Date()
+        return FridgeTrackerWidgetEntry(
+            date: now,
+            configuration: configuration,
+            items: await loadItems(for: configuration, relativeTo: now)
+        )
     }
 
     func timeline(for configuration: FridgeTrackerWidgetConfigurationIntent, in context: Context) async -> Timeline<FridgeTrackerWidgetEntry> {
-        let entry = FridgeTrackerWidgetEntry(date: Date(), configuration: configuration, items: loadItems(for: configuration))
-        let nextUpdate = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date().addingTimeInterval(86_400)
+        let now = Date()
+        let entry = FridgeTrackerWidgetEntry(
+            date: now,
+            configuration: configuration,
+            items: await loadItems(for: configuration, relativeTo: now)
+        )
+        let nextUpdate = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) ?? now.addingTimeInterval(86_400)
         return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
-    private func loadItems(for configuration: FridgeTrackerWidgetConfigurationIntent) -> [ExpiringFoodSnapshot] {
-        guard let url = FileManager.default.expiringFoodsSnapshotURL,
-              let data = try? Data(contentsOf: url),
-              let items = try? JSONDecoder.expiringFoods.decode([ExpiringFoodSnapshot].self, from: data) else {
-            return []
-        }
-
-        let filteredItems = items.filter { item in
-            guard let categoryName = configuration.category.categoryName else { return true }
-            return item.category == categoryName
-        }
-
-        return filteredItems.sorted { $0.expiryDate < $1.expiryDate }
+    private func loadItems(
+        for configuration: FridgeTrackerWidgetConfigurationIntent,
+        relativeTo now: Date
+    ) async -> [ExpiringFoodSnapshot] {
+        guard let url = FileManager.default.expiringFoodsSnapshotURL else { return [] }
+        return await loadFilteredExpiringFoodSnapshots(
+            from: url,
+            categoryID: configuration.category.categoryID,
+            relativeTo: now
+        )
     }
 }
 

@@ -59,8 +59,7 @@ struct ContentView: View {
                 WidgetDataStore.refresh(using: modelContext)
                 HistoryMaintenance.pruneIfEnabled(in: modelContext)
                 guard await NotificationManager.shared.isAuthorized() else { return }
-                let items = (try? modelContext.fetch(FetchDescriptor<FoodItem>())) ?? []
-                await NotificationManager.shared.rescheduleAll(for: items)
+                await NotificationManager.shared.reconcile(using: modelContext)
             }
             // 写后投影兜底：任何 SwiftData 保存（含 autosave、未来新增的写入路径）都会触发快照刷新，
             // 不再依赖每个写入点记得显式调用 WidgetDataStore.refresh
@@ -71,6 +70,11 @@ struct ContentView: View {
                 // 回到前台强制刷新，覆盖跨天后快照里过期天数陈旧的情况
                 if phase == .active {
                     WidgetDataStore.scheduleRefresh(using: modelContext)
+                    Task { @MainActor in
+                        // 覆盖用户从系统设置重新授权、跨日和上次调度失败的恢复路径。
+                        guard await NotificationManager.shared.isAuthorized() else { return }
+                        await NotificationManager.shared.reconcile(using: modelContext)
+                    }
                 }
             }
     }
@@ -104,4 +108,3 @@ struct ContentView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
     }
 }
-

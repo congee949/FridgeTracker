@@ -8,6 +8,8 @@ struct AddFoodView: View {
     let storageZone: StorageZone
     var editItem: FoodItem? = nil
     var template: FoodTemplate? = nil
+    /// Runs model-only mutations that must be committed atomically with this food item.
+    var prepareSave: (() -> Void)? = nil
     var onSave: (() -> Void)? = nil
     var onCancel: (() -> Void)? = nil
 
@@ -29,6 +31,12 @@ struct AddFoodView: View {
     /// True once the user adjusts the expiry via the date picker or stepper, so typing a known
     /// name afterward no longer overwrites their chosen date (mirrors the quantity/notes guard).
     @State private var hasUserAdjustedExpiry: Bool = false
+    @State private var hasUserAdjustedCategory = false
+    @State private var hasUserAdjustedZone = false
+    @State private var hasUserAdjustedCustomIcon = false
+    @State private var hasUserAdjustedQuantity = false
+    @State private var hasUserAdjustedNotes = false
+    @State private var hasUserAdjustedPurchaseDate = false
     @State private var lastAutoAppliedName: String?
     @State private var selectedRecentTemplateName: String?
     @State private var showPhotoPicker = false
@@ -40,6 +48,15 @@ struct AddFoodView: View {
     @State private var ocrErrorMessage: String?
     @State private var cachedHistoryTemplates: [FoodTemplate] = []
     @State private var showCameraDeniedAlert = false
+    @State private var activeOCRRequest: VNRecognizeTextRequest?
+    @State private var activeOCRRequestID: UUID?
+    @State private var isRecognizingImage = false
+    @State private var hasVisibleName = false
+    @State private var isNameComposing = false
+    @State private var isSubmitting = false
+    @State private var activeSaveRequestID: UUID?
+    @State private var saveErrorMessage: String?
+    @StateObject private var nameInputController = IMETextFieldController()
 
     private var isEditing: Bool { editItem != nil }
 
@@ -67,14 +84,16 @@ struct AddFoodView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { cancel() }
+                        .disabled(isSubmitting)
                         .accessibilityIdentifier("addFood.cancelButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("保存") { requestSave() }
+                        .disabled(!hasVisibleName || isSubmitting)
                         .accessibilityIdentifier("addFood.saveButton")
                 }
             }
+            .interactiveDismissDisabled(isSubmitting)
             .sheet(isPresented: $showPhotoPicker) {
                 PackagingPhotoPicker { image in
                     if let image {
@@ -101,14 +120,16 @@ struct AddFoodView: View {
             .onAppear {
                 rebuildHistoryTemplates()
                 if let item = editItem {
-                    name = item.name
+                    setNameFromExternalSource(item.name, applyHistory: false)
                     category = item.category
                     zone = item.storageZone
                     customIcon = item.customIcon ?? ""
-                    expiryDate = item.expiryDate
+                    // Civil date keys are authoritative. Reconstruct DatePicker values in the
+                    // current timezone so travelling cannot shift a date merely by opening Edit.
+                    expiryDate = item.expiryLocalDate.date(in: .current) ?? item.expiryDate
                     quantity = item.quantity ?? ""
                     notes = item.notes ?? ""
-                    if let pd = item.purchaseDate {
+                    if let pd = item.purchaseLocalDate?.date(in: .current) ?? item.purchaseDate {
                         purchaseDate = pd
                         hasPurchaseDate = true
                     }
@@ -116,8 +137,6 @@ struct AddFoodView: View {
                     applyTemplate(template)
                     quantity = template.quantity ?? ""
                     notes = template.notes ?? ""
-                    purchaseDate = template.purchaseDate
-                    hasPurchaseDate = template.purchaseDate != nil
                 } else {
                     zone = storageZone
                 }
@@ -128,6 +147,17 @@ struct AddFoodView: View {
             .onChange(of: dispositionRecords.count) { _, _ in
                 rebuildHistoryTemplates()
             }
+            .onDisappear {
+                // IME commit finishes on the next main-loop turn. If a parent removes this view in
+                // that interval, invalidate the callback so a form that is no longer visible cannot
+                // persist data or complete a replenishment item behind the user's back.
+                activeSaveRequestID = nil
+                isSubmitting = false
+                activeOCRRequest?.cancel()
+                activeOCRRequest = nil
+                activeOCRRequestID = nil
+                isRecognizingImage = false
+            }
             .alert("无法使用相机", isPresented: $showCameraDeniedAlert) {
                 Button("好", role: .cancel) {}
                 Button("前往设置") {
@@ -137,6 +167,14 @@ struct AddFoodView: View {
                 }
             } message: {
                 Text("请在系统设置中允许 FridgeTracker 使用相机后再试，或改用「选包装图」从相册识别。")
+            }
+            .alert("无法保存", isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(saveErrorMessage ?? "请检查填写内容后重试。")
             }
         }
     }
@@ -172,6 +210,7 @@ struct AddFoodView: View {
             }
             .buttonStyle(.borderless)
             .font(.subheadline.weight(.medium))
+            .disabled(isRecognizingImage)
 
             Button {
                 showPhotoPicker = true
@@ -180,6 +219,12 @@ struct AddFoodView: View {
             }
             .buttonStyle(.borderless)
             .font(.subheadline.weight(.medium))
+            .disabled(isRecognizingImage)
+
+            if isRecognizingImage {
+                ProgressView("正在识别包装…")
+                    .font(.caption)
+            }
 
             if let ocrErrorMessage {
                 Text(ocrErrorMessage)
@@ -187,11 +232,18 @@ struct AddFoodView: View {
                     .foregroundStyle(.secondary)
             }
 
-            TextField("食材名称", text: $name)
-                .accessibilityIdentifier("addFood.nameField")
-                .onChange(of: name) { _, newValue in
-                    applyHistoryIfNeeded(for: newValue)
-                }
+            IMEAwareTextField(
+                text: $name,
+                hasVisibleNonWhitespaceText: $hasVisibleName,
+                isComposing: $isNameComposing,
+                placeholder: "食材名称",
+                accessibilityIdentifier: "addFood.nameField",
+                controller: nameInputController
+            ) { newValue in
+                saveErrorMessage = nil
+                applyHistoryIfNeeded(for: newValue)
+            }
+            .frame(minHeight: 44)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -199,13 +251,15 @@ struct AddFoodView: View {
                         Button {
                             category = cat
                             customIcon = ""
+                            hasUserAdjustedCategory = true
+                            hasUserAdjustedCustomIcon = true
                         } label: {
                             Text("\(cat.icon) \(cat.rawValue)")
                                 .font(.subheadline)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(category == cat ? Color.accentColor : Color(.systemGray6))
-                                .foregroundColor(category == cat ? .white : .primary)
+                                .foregroundColor(category == cat ? Color(.systemBackground) : .primary)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -219,7 +273,10 @@ struct AddFoodView: View {
 
     private var iconSection: some View {
         Section("显示图标") {
-            TextField("自定义 Emoji（可选）", text: $customIcon)
+            TextField("自定义 Emoji（可选）", text: Binding(
+                get: { customIcon },
+                set: { customIcon = $0; hasUserAdjustedCustomIcon = true }
+            ))
             Text("留空时使用当前分类图标：\(category.icon)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -228,7 +285,10 @@ struct AddFoodView: View {
 
     private var storageSection: some View {
         Section("存储区域") {
-            Picker("存储区域", selection: $zone) {
+            Picker("存储区域", selection: Binding(
+                get: { zone },
+                set: { zone = $0; hasUserAdjustedZone = true }
+            )) {
                 ForEach(StorageZone.allCases, id: \.self) { z in
                     Text("\(z.icon) \(z.rawValue)").tag(z)
                 }
@@ -280,11 +340,20 @@ struct AddFoodView: View {
             }
             .accessibilityIdentifier("addFood.expiryStepper")
 
-            Toggle("记录购买日期", isOn: $hasPurchaseDate)
+            Toggle("记录购买日期", isOn: Binding(
+                get: { hasPurchaseDate },
+                set: { enabled in
+                    hasUserAdjustedPurchaseDate = true
+                    hasPurchaseDate = enabled
+                    purchaseDate = enabled
+                        ? (purchaseDate ?? Calendar.current.startOfDay(for: Date()))
+                        : nil
+                }
+            ))
             if hasPurchaseDate {
                 DatePicker("购买日期", selection: Binding(
                     get: { purchaseDate ?? Date() },
-                    set: { purchaseDate = $0 }
+                    set: { purchaseDate = $0; hasUserAdjustedPurchaseDate = true }
                 ), displayedComponents: .date)
             }
         }
@@ -292,14 +361,20 @@ struct AddFoodView: View {
 
     private var otherSection: some View {
         Section("其他") {
-            TextField("数量（可选）", text: $quantity)
+            TextField("数量（可选）", text: Binding(
+                get: { quantity },
+                set: { quantity = $0; hasUserAdjustedQuantity = true }
+            ))
                 .accessibilityIdentifier("addFood.quantityField")
             if let quantityModeHint {
                 Text(quantityModeHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            TextField("备注（可选）", text: $notes)
+            TextField("备注（可选）", text: Binding(
+                get: { notes },
+                set: { notes = $0; hasUserAdjustedNotes = true }
+            ))
                 .accessibilityIdentifier("addFood.notesField")
         }
     }
@@ -327,10 +402,21 @@ struct AddFoodView: View {
         let normalizedName = template.normalizedName
         selectedRecentTemplateName = normalizedName
         lastAutoAppliedName = normalizedName
-        name = template.name
+        setNameFromExternalSource(template.name, applyHistory: false)
         category = template.category
         zone = template.storageZone
         customIcon = template.customIcon ?? ""
+        hasUserAdjustedCategory = false
+        hasUserAdjustedZone = false
+        hasUserAdjustedCustomIcon = false
+        hasUserAdjustedQuantity = false
+        hasUserAdjustedNotes = false
+        hasUserAdjustedPurchaseDate = false
+        if template.purchaseDate != nil {
+            // A template records that purchase dates are useful, never the previous lot's date.
+            purchaseDate = Calendar.current.startOfDay(for: Date())
+            hasPurchaseDate = true
+        }
         expiryDate = Calendar.current.date(byAdding: .day, value: template.defaultShelfLifeDays, to: Date()) ?? expiryDate
     }
 
@@ -353,18 +439,20 @@ struct AddFoodView: View {
             return
         }
 
-        category = template.category
-        zone = template.storageZone
-        customIcon = template.customIcon ?? ""
+        if !hasUserAdjustedCategory { category = template.category }
+        if !hasUserAdjustedZone { zone = template.storageZone }
+        if !hasUserAdjustedCustomIcon { customIcon = template.customIcon ?? "" }
         // 只填充用户尚未填写的字段，避免输入名称触发的自动套用覆盖已录入内容
-        if quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if !hasUserAdjustedQuantity,
+           quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             quantity = template.quantity ?? ""
         }
-        if notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if !hasUserAdjustedNotes,
+           notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             notes = template.notes ?? ""
         }
-        if !hasPurchaseDate, let templatePurchaseDate = template.purchaseDate {
-            purchaseDate = templatePurchaseDate
+        if !hasUserAdjustedPurchaseDate, !hasPurchaseDate, template.purchaseDate != nil {
+            purchaseDate = Calendar.current.startOfDay(for: Date())
             hasPurchaseDate = true
         }
         // Don't clobber an expiry the user has deliberately set, matching the quantity/notes guard above.
@@ -399,20 +487,28 @@ struct AddFoodView: View {
     }
 
     private func recognizeImage(_ image: UIImage) {
+        activeOCRRequest?.cancel()
         ocrErrorMessage = nil
-        guard let cgImage = image.cgImage else {
-            ocrErrorMessage = "未能读取包装图片，可继续手动输入。"
-            return
-        }
+        isRecognizingImage = true
+        let requestID = UUID()
+        activeOCRRequestID = requestID
 
-        let request = VNRecognizeTextRequest { request, error in
-            let lines = (request.results as? [VNRecognizedTextObservation])?.compactMap {
+        let request = VNRecognizeTextRequest { visionRequest, error in
+            let lines = (visionRequest.results as? [VNRecognizedTextObservation])?.compactMap {
                 $0.topCandidates(1).first?.string
             } ?? []
             let parsed = PackagingTextParser.parse(lines: lines)
             DispatchQueue.main.async {
+                guard activeOCRRequestID == requestID else { return }
+                activeOCRRequest = nil
+                activeOCRRequestID = nil
+                isRecognizingImage = false
                 if let error {
                     ocrErrorMessage = "包装识别失败：\(error.localizedDescription)"
+                    return
+                }
+                guard !lines.isEmpty else {
+                    ocrErrorMessage = "没有识别到清晰文字，可换一张图片或继续手动输入。"
                     return
                 }
                 ocrResult = parsed
@@ -424,17 +520,61 @@ struct AddFoodView: View {
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["zh-Hans", "en-US"]
         request.usesLanguageCorrection = true
+        activeOCRRequest = request
+        let sendableRequest = SendableVisionRequest(request)
 
-        // 竖拍照片的像素数据是横躺的，方向信息在 imageOrientation 里；不传给 Vision 会显著拉低识别率
-        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        // Vision 不需要相机原始的 12MP/48MP 像素。先压到 2048px 长边，限制峰值内存和
+        // 识别耗时；UIImage thumbnail 会把方向烘焙进像素，所以后续统一按 `.up` 处理。
         DispatchQueue.global(qos: .userInitiated).async {
+            guard let preparedImage = Self.imagePreparedForOCR(image),
+                  let cgImage = preparedImage.cgImage else {
+                DispatchQueue.main.async {
+                    guard activeOCRRequestID == requestID else { return }
+                    activeOCRRequest = nil
+                    activeOCRRequestID = nil
+                    isRecognizingImage = false
+                    ocrErrorMessage = "未能读取包装图片，可继续手动输入。"
+                }
+                return
+            }
             do {
-                try VNImageRequestHandler(cgImage: cgImage, orientation: orientation).perform([request])
+                try VNImageRequestHandler(cgImage: cgImage, orientation: .up).perform([sendableRequest.value])
             } catch {
                 DispatchQueue.main.async {
+                    guard activeOCRRequestID == requestID else { return }
+                    activeOCRRequest = nil
+                    activeOCRRequestID = nil
+                    isRecognizingImage = false
                     ocrErrorMessage = "包装识别失败，可继续手动输入。"
                 }
             }
+        }
+    }
+
+    nonisolated private static func imagePreparedForOCR(
+        _ image: UIImage,
+        maximumPixelDimension: CGFloat = 2_048
+    ) -> UIImage? {
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        guard pixelWidth > 0, pixelHeight > 0 else { return nil }
+        let longestSide = max(pixelWidth, pixelHeight)
+        guard longestSide > maximumPixelDimension else {
+            // Drawing even a small image normalizes orientation and prevents a sideways Vision input.
+            let renderer = UIGraphicsImageRenderer(size: image.size)
+            return renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: image.size)) }
+        }
+
+        let ratio = maximumPixelDimension / longestSide
+        let targetSize = CGSize(
+            width: max(1, (pixelWidth * ratio).rounded()),
+            height: max(1, (pixelHeight * ratio).rounded())
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
 
@@ -450,12 +590,26 @@ struct AddFoodView: View {
         }
         let trimmedName = ocrNameCandidate.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedName.isEmpty {
-            name = trimmedName
+            setNameFromExternalSource(trimmedName, applyHistory: true)
         }
         showOCRConfirmation = false
     }
 
+    /// Explicit UI choices replace any in-progress marked text.  Keeping this path separate from
+    /// normal typing prevents a stale Pinyin candidate from overwriting a template or OCR result.
+    private func setNameFromExternalSource(_ newName: String, applyHistory: Bool) {
+        name = newName
+        hasVisibleName = !newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isNameComposing = false
+        saveErrorMessage = nil
+        nameInputController.replaceText(with: newName)
+        if applyHistory {
+            applyHistoryIfNeeded(for: newName)
+        }
+    }
+
     private func cancel() {
+        guard !isSubmitting else { return }
         if let onCancel {
             onCancel()
         } else {
@@ -463,41 +617,87 @@ struct AddFoodView: View {
         }
     }
 
+    /// Save must first make the IME's visible candidate authoritative.  The controller completes on
+    /// the next main-loop turn, after UIKit has finalized marked text during resignFirstResponder.
+    private func requestSave() {
+        guard !isSubmitting else { return }
+        let requestID = UUID()
+        activeSaveRequestID = requestID
+        isSubmitting = true
+        nameInputController.commitAndResign(fallbackText: name) { finalText in
+            guard activeSaveRequestID == requestID else { return }
+            name = finalText
+            hasVisibleName = !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            isNameComposing = false
+            save()
+        }
+    }
+
     private func save() {
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        defer {
+            activeSaveRequestID = nil
+            isSubmitting = false
+        }
+
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try FoodTextConstraints.validateFoodInput(
+                name: name,
+                quantity: quantity,
+                notes: notes,
+                customIcon: customIcon
+            )
+        } catch {
+            saveErrorMessage = error.localizedDescription
+            let validationError = error as? FoodInputValidationError
+            hasVisibleName = validationError?.isEmptyValue == true
+                ? false
+                : !trimmedName.isEmpty
+            if validationError?.field == "食材名称" {
+                nameInputController.focus()
+            }
+            return
+        }
+
+        if hasPurchaseDate {
+            guard let purchaseDate else {
+                saveErrorMessage = "请重新选择购买日期。"
+                return
+            }
+            let calendar = Calendar.current
+            let purchaseDay = calendar.startOfDay(for: purchaseDate)
+            let today = calendar.startOfDay(for: Date())
+            let expiryDay = calendar.startOfDay(for: expiryDate)
+            guard purchaseDay <= today else {
+                saveErrorMessage = "购买日期不能晚于今天。"
+                return
+            }
+            guard purchaseDay <= expiryDay else {
+                saveErrorMessage = "购买日期不能晚于保质期。"
+                return
+            }
+        }
+
         let normalizedCustomIcon = customIcon.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : customIcon.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedQuantity = quantity.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let savedItem: FoodItem
 
         if let item = editItem {
             // Update existing
             item.name = trimmedName
-            item.category = category
+            item.updateCategory(category)
             item.storageZone = zone
             item.customIcon = normalizedCustomIcon
-            item.expiryDate = expiryDate
             item.quantity = normalizedQuantity.isEmpty ? nil : normalizedQuantity
             item.notes = normalizedNotes.isEmpty ? nil : normalizedNotes
-            item.purchaseDate = hasPurchaseDate ? purchaseDate : nil
-            item.refreshOriginalShelfLife()
-
-            scheduleAfterEnsuringPermission(for: item, allowsImmediateFallback: false)
-        } else if let existingItem = mergeCandidate(
-            name: trimmedName,
-            category: category,
-            zone: zone,
-            customIcon: normalizedCustomIcon,
-            expiryDate: expiryDate,
-            quantity: normalizedQuantity
-        ) {
-            existingItem.mergeQuantity(from: normalizedQuantity)
-            if existingItem.notes?.isEmpty ?? true, !normalizedNotes.isEmpty {
-                existingItem.notes = normalizedNotes
-            }
-
-            scheduleAfterEnsuringPermission(for: existingItem, allowsImmediateFallback: true)
+            item.updateCivilDates(
+                purchaseDate: hasPurchaseDate ? purchaseDate : nil,
+                expiryDate: expiryDate
+            )
+            savedItem = item
         } else {
-            // Create new
+            // Every purchase is its own inventory lot; repeated names never merge implicitly.
             let item = FoodItem(
                 name: trimmedName,
                 category: category,
@@ -509,9 +709,24 @@ struct AddFoodView: View {
                 notes: normalizedNotes.isEmpty ? nil : normalizedNotes
             )
             modelContext.insert(item)
-            scheduleAfterEnsuringPermission(for: item, allowsImmediateFallback: true)
+            savedItem = item
         }
 
+        // Parent-owned model mutations (for example completing a replenishment item) join this one
+        // explicit commit.  UI dismissal belongs in onSave, which only runs after commit succeeds.
+        prepareSave?()
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            saveErrorMessage = "数据没有保存，请重试。\n\(error.localizedDescription)"
+            return
+        }
+
+        scheduleAfterEnsuringPermission(
+            for: savedItem,
+            allowsImmediateFallback: editItem == nil
+        )
         WidgetDataStore.refresh(using: modelContext)
         if let onSave {
             onSave()
@@ -523,47 +738,29 @@ struct AddFoodView: View {
     /// 先确保通知权限（首次添加时弹系统授权框），授权后再重排该食材的提醒。
     /// 未授权状态下直接 add 通知请求会失败，所以顺序必须是先权限后调度。
     private func scheduleAfterEnsuringPermission(for item: FoodItem, allowsImmediateFallback: Bool) {
+        let immediateFallbackItemID = allowsImmediateFallback ? item.uuid : nil
         Task { @MainActor in
-            guard await NotificationManager.shared.requestPermission() else { return }
-            NotificationManager.shared.cancelNotification(for: item)
-            NotificationManager.shared.scheduleNotification(for: item, allowsImmediateFallback: allowsImmediateFallback)
+            let notificationsEnabled = UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true
+            if notificationsEnabled {
+                _ = await NotificationManager.shared.requestPermission()
+            }
+            await NotificationManager.shared.reconcile(
+                using: modelContext,
+                immediateFallbackItemID: immediateFallbackItemID
+            )
         }
     }
 
-    private func mergeCandidate(
-        name: String,
-        category: FoodCategory,
-        zone: StorageZone,
-        customIcon: String?,
-        expiryDate: Date,
-        quantity: String
-    ) -> FoodItem? {
-        guard FoodQuantity.parse(quantity) != nil else { return nil }
-
-        return existingItems.first { item in
-            item.name == name &&
-                item.category == category &&
-                item.storageZone == zone &&
-                item.customIcon == customIcon &&
-                Calendar.current.isDate(item.expiryDate, inSameDayAs: expiryDate) &&
-                FoodQuantity.parse(item.quantity)?.unit == FoodQuantity.parse(quantity)?.unit
-        }
-    }
 }
 
-private extension CGImagePropertyOrientation {
-    init(_ orientation: UIImage.Orientation) {
-        switch orientation {
-        case .up: self = .up
-        case .down: self = .down
-        case .left: self = .left
-        case .right: self = .right
-        case .upMirrored: self = .upMirrored
-        case .downMirrored: self = .downMirrored
-        case .leftMirrored: self = .leftMirrored
-        case .rightMirrored: self = .rightMirrored
-        @unknown default: self = .up
-        }
+/// Vision requests support cancellation while `perform` is running, but the SDK type has not yet
+/// adopted Sendable. This narrow wrapper documents the one cross-queue handoff instead of marking
+/// the entire view or callback unsafe.
+private final class SendableVisionRequest: @unchecked Sendable {
+    let value: VNRecognizeTextRequest
+
+    init(_ value: VNRecognizeTextRequest) {
+        self.value = value
     }
 }
 
@@ -579,7 +776,7 @@ struct RecentTemplateChip: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .foregroundStyle(isSelected ? .white : .primary)
+                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
                 .background {
                     Capsule()
                         .fill(isSelected ? Color.accentColor : Color(.systemGray6))
@@ -588,4 +785,3 @@ struct RecentTemplateChip: View {
         .buttonStyle(.plain)
     }
 }
-

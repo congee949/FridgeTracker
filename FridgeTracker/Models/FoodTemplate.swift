@@ -46,8 +46,19 @@ struct FoodTemplate: Identifiable {
     /// 聚合当前库存与吃掉/扔掉记录生成历史模板：同名取时间最新的一条，
     /// 因此吃完下架的食材依然保留在历史建议里，且结果与调用方的查询排序无关。
     static func fromHistory(_ items: [FoodItem], records: [FoodDispositionRecord] = []) -> [FoodTemplate] {
-        var candidates: [(template: FoodTemplate, date: Date)] = items.map { item in
-            (
+        typealias DatedTemplate = (template: FoodTemplate, date: Date)
+        var newestByName: [String: DatedTemplate] = [:]
+        newestByName.reserveCapacity(items.count + records.count)
+
+        func keepIfNewest(_ candidate: DatedTemplate) {
+            let key = candidate.template.normalizedName
+            guard !key.isEmpty else { return }
+            guard newestByName[key].map({ candidate.date > $0.date }) ?? true else { return }
+            newestByName[key] = candidate
+        }
+
+        for item in items {
+            keepIfNewest((
                 FoodTemplate(
                     name: item.name,
                     category: item.category,
@@ -59,10 +70,11 @@ struct FoodTemplate: Identifiable {
                     purchaseDate: item.purchaseDate
                 ),
                 item.createdAt
-            )
+            ))
         }
-        candidates.append(contentsOf: records.map { record in
-            (
+
+        for record in records {
+            keepIfNewest((
                 FoodTemplate(
                     name: record.foodName,
                     category: record.category,
@@ -74,17 +86,15 @@ struct FoodTemplate: Identifiable {
                     purchaseDate: record.purchaseDate
                 ),
                 record.createdAt
-            )
-        })
+            ))
+        }
 
-        var seen = Set<String>()
-        return candidates
-            .sorted { $0.date > $1.date }
-            .compactMap { candidate in
-                let key = candidate.template.normalizedName
-                guard !key.isEmpty, !seen.contains(key) else { return nil }
-                seen.insert(key)
-                return candidate.template
+        // 去重由字典线性完成；这里只对唯一名称排序，避免先对全部历史做 O(N log N) 排序。
+        return newestByName.values
+            .sorted { lhs, rhs in
+                if lhs.date != rhs.date { return lhs.date > rhs.date }
+                return lhs.template.normalizedName.localizedCompare(rhs.template.normalizedName) == .orderedAscending
             }
+            .map(\.template)
     }
 }

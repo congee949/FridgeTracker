@@ -12,6 +12,7 @@ enum PackagingDateSanity {
     static let maxReasonableYearsAhead = 2
 
     static func warning(for date: Date, relativeTo now: Date = Date(), calendar: Calendar = .current) -> String? {
+        let calendar = PackagingTextParser.gregorianCalendar(in: calendar.timeZone)
         let day = calendar.startOfDay(for: date)
         let today = calendar.startOfDay(for: now)
         if day < today {
@@ -40,6 +41,7 @@ struct PackagingTextParser {
     private static let compactDateRegex = try? NSRegularExpression(pattern: #"(?<!\d)(20\d{2})(1[0-2]|0[1-9])(3[01]|[12]\d|0[1-9])(?!\d)"#)
 
     static func parse(lines: [String], calendar: Calendar = .current) -> PackagingOCRResult {
+        let calendar = gregorianCalendar(in: calendar.timeZone)
         let normalizedLines = lines
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -53,6 +55,7 @@ struct PackagingTextParser {
     }
 
     static func expiryDate(from lines: [String], calendar: Calendar = .current) -> Date? {
+        let calendar = gregorianCalendar(in: calendar.timeZone)
         let directKeywords = ["保质期至", "有效期至", "最佳食用日期", "到期日", "EXP"]
         for line in lines where directKeywords.contains(where: { line.localizedCaseInsensitiveContains($0) }) {
             if let date = firstDate(in: line, calendar: calendar) {
@@ -151,6 +154,14 @@ struct PackagingTextParser {
         let letterCount = line.filter(\.isLetter).count
         let digitCount = line.filter(\.isNumber).count
         return chineseCount * 3 + letterCount - digitCount * 2 - abs(line.count - 6)
+    }
+
+    /// 包装上的 20xx 年月日是公历民用日期；设备选择佛历、日历等系统日历时也不能改变其含义。
+    static func gregorianCalendar(in timeZone: TimeZone) -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = timeZone
+        return calendar
     }
 }
 

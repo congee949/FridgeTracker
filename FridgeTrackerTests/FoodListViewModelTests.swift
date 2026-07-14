@@ -20,14 +20,14 @@ final class FoodListViewModelTests: XCTestCase {
 
     private var context: ModelContext!
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         context = try TestModelContainer.makeContext()
     }
 
-    override func tearDownWithError() throws {
+    override func tearDown() async throws {
         context = nil
-        try super.tearDownWithError()
+        try await super.tearDown()
     }
 
     // MARK: - Helpers
@@ -187,6 +187,19 @@ final class FoodListViewModelTests: XCTestCase {
         let result = sut.filteredItems(items)
 
         XCTAssertEqual(names(result), ["早", "中", "晚"])
+    }
+
+    func testExpirySortUsesAuthoritativeCivilDayInsteadOfLegacyInstant() {
+        let sut = FoodListViewModel()
+        sut.sortOption = .expiryDate
+
+        let civilEarlier = makeItem(name: "民用日期早", expiryOffsetDays: 10, createdOffsetSeconds: 0)
+        civilEarlier.expiryDayKey = "2026-01-01"
+        let civilLater = makeItem(name: "民用日期晚", expiryOffsetDays: -10, createdOffsetSeconds: 1)
+        civilLater.expiryDayKey = "2026-01-02"
+
+        XCTAssertGreaterThan(civilEarlier.expiryDate, civilLater.expiryDate, "legacy instants intentionally disagree")
+        XCTAssertEqual(names(sut.filteredItems([civilLater, civilEarlier])), ["民用日期早", "民用日期晚"])
     }
 
     // MARK: - Sort: created date (descending)

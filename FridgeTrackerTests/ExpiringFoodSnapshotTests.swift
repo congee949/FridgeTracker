@@ -63,7 +63,9 @@ final class ExpiringFoodSnapshotTests: XCTestCase {
             storageIcon: "❄️",
             // .iso8601 strategy has whole-second resolution, so use a sub-second-free date.
             expiryDate: Date(timeIntervalSince1970: 1_700_000_000),
-            daysUntilExpiry: 2
+            daysUntilExpiry: 2,
+            categoryID: .dairy,
+            expiryDayKey: LocalDate(iso8601DateString: "2023-11-15")
         )
 
         let data = try JSONEncoder.expiringFoods.encode(original)
@@ -82,6 +84,8 @@ final class ExpiringFoodSnapshotTests: XCTestCase {
         XCTAssertEqual(decoded.storageIcon, "❄️")
         XCTAssertEqual(decoded.expiryDate, original.expiryDate)
         XCTAssertEqual(decoded.daysUntilExpiry, 2)
+        XCTAssertEqual(decoded.categoryID, .dairy)
+        XCTAssertEqual(decoded.expiryDayKey?.iso8601DateString, "2023-11-15")
     }
 
     func testEncoderUsesISO8601DateStrategy() throws {
@@ -159,19 +163,273 @@ final class ExpiringFoodSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.expiryText, "已过期 2 天")
     }
 
+    // MARK: - v2 snapshot filtering contract
+
+    func testLegacyArrayWithoutCategoryIDStillDecodesAndResolvesChineseCategory() throws {
+        let legacyJSON = """
+        [{"id":"12345678-1234-1234-1234-123456789012","name":"核桃","category":"坚果","categoryIcon":"🥜","displayIcon":"🥜","storageZone":"常温","storageIcon":"🏠","expiryDate":"2026-07-14T00:00:00Z","daysUntilExpiry":3}]
+        """
+        let decoded = try decodeExpiringFoodSnapshots(from: Data(legacyJSON.utf8))
+
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertNil(decoded[0].categoryID)
+        XCTAssertEqual(decoded[0].resolvedCategoryID, .nut)
+    }
+
+    func testEnvelopeRoundTripUsesVersionAndStableNutCategoryID() throws {
+        let item = makeSnapshot(expiryDate: .now, daysUntilExpiry: 0, category: "坚果", categoryID: .nut)
+        let data = try JSONEncoder.expiringFoods.encode(ExpiringFoodSnapshotEnvelope(items: [item]))
+        let envelope = try JSONDecoder.expiringFoods.decode(ExpiringFoodSnapshotEnvelope.self, from: data)
+
+        XCTAssertEqual(envelope.version, ExpiringFoodSnapshotEnvelope.currentVersion)
+        XCTAssertEqual(try decodeExpiringFoodSnapshots(from: data).first?.resolvedCategoryID, .nut)
+    }
+
+    func testAsyncSnapshotReaderUsesSameTenMiBLimitAsWriter() {
+        XCTAssertEqual(expiringFoodsSnapshotMaximumByteCount, 10 * 1_024 * 1_024)
+        XCTAssertEqual(expiringFoodsSnapshotMaximumByteCount, WidgetDataStore.maximumSnapshotSize)
+    }
+
+    func testAsyncSnapshotReaderReturnsFallbackForOversizedOtherwiseValidPayload() async throws {
+        let item = makeSnapshot(expiryDate: .now, daysUntilExpiry: 0)
+        var data = try JSONEncoder.expiringFoods.encode(ExpiringFoodSnapshotEnvelope(items: [item]))
+        data.append(Data(repeating: 0x20, count: 32)) // JSON trailing whitespace remains valid.
+        XCTAssertEqual(try decodeExpiringFoodSnapshots(from: data).count, 1)
+
+        let url = temporarySnapshotURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try data.write(to: url)
+
+        XCTAssertNil(try readBoundedExpiringFoodSnapshotData(
+            from: url,
+            maximumByteCount: data.count - 1
+        ))
+        XCTAssertNil(try readBoundedExpiringFoodSnapshotData(
+            from: url,
+            maximumByteCount: .max
+        ))
+        let result = await loadFilteredExpiringFoodSnapshots(
+            from: url,
+            categoryID: nil,
+            relativeTo: .now,
+            maximumByteCount: data.count - 1
+        )
+
+        XCTAssertTrue(result.isEmpty)
+    }
+
+    func testAsyncSnapshotReaderReturnsFallbackForCorruptPayload() async throws {
+        let url = temporarySnapshotURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("{not-json".utf8).write(to: url)
+
+        let result = await loadFilteredExpiringFoodSnapshots(
+            from: url,
+            categoryID: nil,
+            relativeTo: .now
+        )
+
+        XCTAssertTrue(result.isEmpty)
+    }
+
+    func testAsyncSnapshotReaderKeepsLegacyArrayCompatibility() async throws {
+        let legacyJSON = """
+        [{"id":"12345678-1234-1234-1234-123456789012","name":"核桃","category":"坚果","categoryIcon":"🥜","displayIcon":"🥜","storageZone":"常温","storageIcon":"🏠","expiryDate":"2026-07-14T00:00:00Z","daysUntilExpiry":3}]
+        """
+        let url = temporarySnapshotURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data(legacyJSON.utf8).write(to: url)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
+
+        let result = await loadFilteredExpiringFoodSnapshots(
+            from: url,
+            categoryID: .nut,
+            relativeTo: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(result.map(\.name), ["核桃"])
+    }
+
+    func testAsyncSnapshotReaderDecodesV2ThenFiltersAndSorts() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
+        let tomorrow = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: now))
+        let laterNut = makeSnapshot(
+            expiryDate: tomorrow,
+            daysUntilExpiry: 1,
+            name: "腰果",
+            category: "坚果",
+            categoryID: .nut
+        )
+        let firstNut = makeSnapshot(
+            expiryDate: now,
+            daysUntilExpiry: 0,
+            name: "核桃",
+            category: "坚果",
+            categoryID: .nut
+        )
+        let other = makeSnapshot(
+            expiryDate: now,
+            daysUntilExpiry: 0,
+            name: "牛奶",
+            category: "乳制品",
+            categoryID: .dairy
+        )
+        let data = try JSONEncoder.expiringFoods.encode(
+            ExpiringFoodSnapshotEnvelope(items: [laterNut, other, firstNut])
+        )
+        let url = temporarySnapshotURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try data.write(to: url)
+
+        let result = await loadFilteredExpiringFoodSnapshots(
+            from: url,
+            categoryID: .nut,
+            relativeTo: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(result.map(\.id), [firstNut.id, laterNut.id])
+    }
+
+    func testAsyncSnapshotReaderHonorsPreexistingCancellation() async throws {
+        let item = makeSnapshot(expiryDate: .now, daysUntilExpiry: 0)
+        let data = try JSONEncoder.expiringFoods.encode(ExpiringFoodSnapshotEnvelope(items: [item]))
+        let url = temporarySnapshotURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try data.write(to: url)
+
+        let result = await Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await loadFilteredExpiringFoodSnapshots(
+                from: url,
+                categoryID: nil,
+                relativeTo: .now
+            )
+        }.value
+
+        XCTAssertTrue(result.isEmpty)
+    }
+
+    func testRollingWindowReevaluatesDatesWithoutNewAppSnapshot() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let firstTimelineDate = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
+        let expiry = try XCTUnwrap(calendar.date(byAdding: .day, value: 31, to: firstTimelineDate))
+        let item = makeSnapshot(expiryDate: expiry, daysUntilExpiry: 31)
+
+        XCTAssertTrue(filteredExpiringFoodSnapshots([item], categoryID: nil, relativeTo: firstTimelineDate, calendar: calendar).isEmpty)
+
+        let nextDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: firstTimelineDate))
+        XCTAssertEqual(filteredExpiringFoodSnapshots([item], categoryID: nil, relativeTo: nextDay, calendar: calendar).map(\.id), [item.id])
+    }
+
+    func testCategoryFilteringHappensBeforeFiftyItemLimit() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
+        let dairy = (0..<50).map { index in
+            makeSnapshot(expiryDate: now, daysUntilExpiry: 0, name: "乳制品\(index)", category: "乳制品", categoryID: .dairy)
+        }
+        let nut = makeSnapshot(expiryDate: now, daysUntilExpiry: 0, name: "核桃", category: "坚果", categoryID: .nut)
+
+        let result = filteredExpiringFoodSnapshots(dairy + [nut], categoryID: .nut, relativeTo: now, calendar: calendar)
+
+        XCTAssertEqual(result.map(\.id), [nut.id])
+    }
+
+    func testOldExpiredItemsFallOutOfWindowAtWidgetTimelineTime() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14)))
+        let oldExpiry = try XCTUnwrap(calendar.date(byAdding: .day, value: -15, to: today))
+        let item = makeSnapshot(expiryDate: oldExpiry, daysUntilExpiry: -1)
+
+        XCTAssertTrue(filteredExpiringFoodSnapshots([item], categoryID: nil, relativeTo: today, calendar: calendar).isEmpty)
+    }
+
+    func testLocalDateIsStrictGregorianAndCodableAsYYYYMMDD() throws {
+        XCTAssertNil(LocalDate(year: 2026, month: 2, day: 30))
+        let leapDay = try XCTUnwrap(LocalDate(year: 2028, month: 2, day: 29))
+        XCTAssertEqual(leapDay.adding(days: 1)?.iso8601DateString, "2028-03-01")
+        XCTAssertEqual(leapDay.days(until: try XCTUnwrap(LocalDate(iso8601DateString: "2028-03-02"))), 2)
+
+        let data = try JSONEncoder().encode(leapDay)
+        XCTAssertEqual(String(data: data, encoding: .utf8), "\"2028-02-29\"")
+        XCTAssertEqual(try JSONDecoder().decode(LocalDate.self, from: data), leapDay)
+    }
+
+    func testLocalDateExtractionUsesExplicitTimezoneButCivilDateDoesNotShiftAfterward() throws {
+        let instant = Date(timeIntervalSince1970: 1_752_448_800) // 2025-07-13 23:20:00Z
+        let shanghaiTimeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let losAngelesTimeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let shanghai = LocalDate(date: instant, timeZone: shanghaiTimeZone)
+        let losAngeles = LocalDate(date: instant, timeZone: losAngelesTimeZone)
+
+        XCTAssertEqual(shanghai.iso8601DateString, "2025-07-14")
+        XCTAssertEqual(losAngeles.iso8601DateString, "2025-07-13")
+        let shanghaiNineAMInLA = try XCTUnwrap(shanghai.date(in: losAngelesTimeZone, hour: 9))
+        XCTAssertEqual(LocalDate(date: shanghaiNineAMInLA, timeZone: losAngelesTimeZone), shanghai)
+    }
+
+    func testLocalDateRoundTripsAcrossDSTAndExtremeTimezones() throws {
+        let civilDates = [
+            try XCTUnwrap(LocalDate(iso8601DateString: "2026-03-08")),  // US DST start
+            try XCTUnwrap(LocalDate(iso8601DateString: "2026-11-01")), // US DST end
+            try XCTUnwrap(LocalDate(iso8601DateString: "2028-02-29"))
+        ]
+        let timeZones = try [
+            "Pacific/Kiritimati",    // UTC+14
+            "America/Los_Angeles",
+            "Asia/Shanghai",
+            "Pacific/Pago_Pago"     // UTC-11
+        ].map { try XCTUnwrap(TimeZone(identifier: $0)) }
+
+        for civilDate in civilDates {
+            let encoded = try JSONEncoder().encode(civilDate)
+            XCTAssertEqual(try JSONDecoder().decode(LocalDate.self, from: encoded), civilDate)
+
+            for timeZone in timeZones {
+                let localNoon = try XCTUnwrap(civilDate.date(in: timeZone, hour: 12))
+                XCTAssertEqual(
+                    LocalDate(date: localNoon, timeZone: timeZone),
+                    civilDate,
+                    "civil date shifted in \(timeZone.identifier)"
+                )
+            }
+        }
+    }
+
     // MARK: - Helpers
 
-    private func makeSnapshot(expiryDate: Date, daysUntilExpiry: Int) -> ExpiringFoodSnapshot {
+    private func temporarySnapshotURL() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("FridgeTrackerSnapshotReader-\(UUID().uuidString).json")
+    }
+
+    private func makeSnapshot(
+        expiryDate: Date,
+        daysUntilExpiry: Int,
+        name: String = "测试",
+        category: String = "其他",
+        categoryID: FoodCategoryID? = nil
+    ) -> ExpiringFoodSnapshot {
         ExpiringFoodSnapshot(
             id: UUID(),
-            name: "测试",
-            category: "其他",
-            categoryIcon: "📦",
-            displayIcon: "📦",
+            name: name,
+            category: category,
+            categoryIcon: categoryID == .nut ? "🥜" : "📦",
+            displayIcon: categoryID == .nut ? "🥜" : "📦",
             storageZone: "冷藏",
             storageIcon: "❄️",
             expiryDate: expiryDate,
-            daysUntilExpiry: daysUntilExpiry
+            daysUntilExpiry: daysUntilExpiry,
+            categoryID: categoryID,
+            expiryDayKey: nil
         )
     }
 }
