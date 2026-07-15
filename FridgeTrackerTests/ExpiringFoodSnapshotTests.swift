@@ -377,6 +377,90 @@ final class ExpiringFoodSnapshotTests: XCTestCase {
         )
     }
 
+    func testAppGroupCandidatesPreserveCanonicalInstall() {
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(bundleIdentifier: fridgeTrackerAppBundleIdentifier),
+            [fridgeTrackerAppGroupIdentifier]
+        )
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(bundleIdentifier: fridgeTrackerWidgetBundleIdentifier),
+            [fridgeTrackerAppGroupIdentifier]
+        )
+    }
+
+    func testAppGroupCandidatesSupportResignedAppAndWidgetIdentifiers() {
+        let expected = [
+            fridgeTrackerAppGroupIdentifier,
+            "\(fridgeTrackerAppGroupIdentifier).4ABD62UF7K"
+        ]
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(
+                bundleIdentifier: "\(fridgeTrackerAppBundleIdentifier).4ABD62UF7K"
+            ),
+            expected
+        )
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(
+                bundleIdentifier: "\(fridgeTrackerWidgetBundleIdentifier).4ABD62UF7K"
+            ),
+            expected
+        )
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(
+                bundleIdentifier: "\(fridgeTrackerAppBundleIdentifier).4ABD62UF7K.FridgeTrackerWidget"
+            ),
+            expected
+        )
+    }
+
+    func testAppGroupCandidatesRejectUnrelatedOrUnsafeRewrites() {
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(bundleIdentifier: "com.example.FridgeTracker.BAD"),
+            [fridgeTrackerAppGroupIdentifier]
+        )
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(
+                bundleIdentifier: "\(fridgeTrackerAppBundleIdentifier).BAD.SUFFIX"
+            ),
+            [fridgeTrackerAppGroupIdentifier]
+        )
+        XCTAssertEqual(
+            FridgeTrackerAppGroup.candidateIdentifiers(bundleIdentifier: nil),
+            [fridgeTrackerAppGroupIdentifier]
+        )
+    }
+
+    func testAppGroupResolutionFallsBackToResignedContainer() {
+        let rewritten = "\(fridgeTrackerAppGroupIdentifier).4ABD62UF7K"
+        let expectedURL = URL(fileURLWithPath: "/tmp/resigned-app-group", isDirectory: true)
+        var attempted: [String] = []
+
+        let resolved = FridgeTrackerAppGroup.resolveContainerURL(
+            bundleIdentifier: "\(fridgeTrackerAppBundleIdentifier).4ABD62UF7K"
+        ) { identifier in
+            attempted.append(identifier)
+            return identifier == rewritten ? expectedURL : nil
+        }
+
+        XCTAssertEqual(attempted, [fridgeTrackerAppGroupIdentifier, rewritten])
+        XCTAssertEqual(resolved, expectedURL)
+    }
+
+    func testAppGroupResolutionPrefersCanonicalContainer() {
+        let expectedURL = URL(fileURLWithPath: "/tmp/canonical-app-group", isDirectory: true)
+        var attempted: [String] = []
+
+        let resolved = FridgeTrackerAppGroup.resolveContainerURL(
+            bundleIdentifier: "\(fridgeTrackerAppBundleIdentifier).4ABD62UF7K"
+        ) { identifier in
+            attempted.append(identifier)
+            return identifier == fridgeTrackerAppGroupIdentifier ? expectedURL : nil
+        }
+
+        XCTAssertEqual(attempted, [fridgeTrackerAppGroupIdentifier])
+        XCTAssertEqual(resolved, expectedURL)
+    }
+
     func testLocalDateIsStrictGregorianAndCodableAsYYYYMMDD() throws {
         XCTAssertNil(LocalDate(year: 2026, month: 2, day: 30))
         let leapDay = try XCTUnwrap(LocalDate(year: 2028, month: 2, day: 29))

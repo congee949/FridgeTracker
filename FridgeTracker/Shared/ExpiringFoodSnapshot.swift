@@ -7,6 +7,8 @@ import SwiftUI
 // 快照文件 URL、JSON 编解码器，以及 expiryStatusText / expiryStatusColor 展示辅助。
 // 修改时请勿移除任一 target 的 membership，否则 widget 或 app 会因找不到符号而编译失败。
 let fridgeTrackerAppGroupIdentifier = "group.com.congee.FridgeTracker"
+let fridgeTrackerAppBundleIdentifier = "com.congee.FridgeTracker"
+let fridgeTrackerWidgetBundleIdentifier = "com.congee.FridgeTracker.FridgeTrackerWidget"
 let fridgeTrackerWidgetKind = "FridgeTrackerWidget"
 let fridgeTrackerWidgetRefreshInterval: TimeInterval = 15 * 60
 let expiringFoodsSnapshotFileName = "expiring-foods.json"
@@ -366,8 +368,69 @@ func filteredExpiringFoodSnapshots(
 
 extension FileManager {
     var expiringFoodsSnapshotURL: URL? {
-        containerURL(forSecurityApplicationGroupIdentifier: fridgeTrackerAppGroupIdentifier)?
+        FridgeTrackerAppGroup.containerURL(fileManager: self)?
             .appendingPathComponent(expiringFoodsSnapshotFileName)
+    }
+}
+
+/// AltStore/SideStore-style resigning appends an account/team suffix to the App, Widget and App
+/// Group identifiers. The entitlement is valid, but a lookup using only the canonical identifier
+/// returns nil. Resolve the canonical group first, then the narrowly-derived rewritten candidate
+/// so direct Xcode/App Store installations keep their original container.
+enum FridgeTrackerAppGroup {
+    static func candidateIdentifiers(bundleIdentifier: String?) -> [String] {
+        var candidates = [fridgeTrackerAppGroupIdentifier]
+        guard let suffix = rewrittenIdentifierSuffix(bundleIdentifier: bundleIdentifier) else {
+            return candidates
+        }
+        candidates.append("\(fridgeTrackerAppGroupIdentifier).\(suffix)")
+        return candidates
+    }
+
+    static func containerURL(
+        fileManager: FileManager = .default,
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier
+    ) -> URL? {
+        resolveContainerURL(bundleIdentifier: bundleIdentifier) { identifier in
+            fileManager.containerURL(forSecurityApplicationGroupIdentifier: identifier)
+        }
+    }
+
+    static func resolveContainerURL(
+        bundleIdentifier: String?,
+        lookup: (String) -> URL?
+    ) -> URL? {
+        for identifier in candidateIdentifiers(bundleIdentifier: bundleIdentifier) {
+            if let url = lookup(identifier) { return url }
+        }
+        return nil
+    }
+
+    private static func rewrittenIdentifierSuffix(bundleIdentifier: String?) -> String? {
+        guard let bundleIdentifier else { return nil }
+
+        let suffix: Substring?
+        let widgetPrefix = fridgeTrackerWidgetBundleIdentifier + "."
+        let appPrefix = fridgeTrackerAppBundleIdentifier + "."
+        if bundleIdentifier.hasPrefix(widgetPrefix) {
+            suffix = bundleIdentifier.dropFirst(widgetPrefix.count)
+        } else if bundleIdentifier.hasPrefix(appPrefix) {
+            var remainder = bundleIdentifier.dropFirst(appPrefix.count)
+            let widgetTail = ".FridgeTrackerWidget"
+            if remainder.hasSuffix(widgetTail) {
+                remainder = remainder.dropLast(widgetTail.count)
+            }
+            // The canonical Widget ID has no resigning suffix.
+            suffix = remainder == "FridgeTrackerWidget" ? nil : remainder
+        } else {
+            suffix = nil
+        }
+
+        guard let suffix, !suffix.isEmpty, suffix.count <= 64,
+              suffix.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) else {
+            return nil
+        }
+        return String(suffix)
     }
 }
 

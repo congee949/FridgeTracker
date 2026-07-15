@@ -4,6 +4,14 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.1.0-build.6] - 2026-07-15
+
+### 修复
+- **AltStore/SideStore 小组件无法同步**：App 与 Widget 先访问官方 App Group；若重签工具为 Bundle ID 与 App Group 添加账号/团队后缀，则双方从各自实际 Bundle ID 推导并访问同一个重写后容器。兼容常见的两种 Widget Bundle ID 重写顺序，同时拒绝包含多段或非法字符的后缀。
+
+### 验证
+- 覆盖官方签名、重签 App、两种重签 Widget ID、非法后缀、官方容器优先与重签容器回退测试。
+
 ## [1.1.0-build.5] - 2026-07-15
 
 ### 修复
