@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import UIKit
 import WidgetKit
 import os
 
@@ -81,6 +82,13 @@ enum WidgetDataStore {
 
         writeGeneration += 1
         let generation = writeGeneration
+        // Saving food and immediately returning to the Home Screen is the normal path. Protect
+        // the tiny projection write from app suspension so the Widget never races a half-finished
+        // refresh. The task is ended on MainActor after the serial writer finishes.
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(
+            withName: "Refresh FridgeTracker Widget",
+            expirationHandler: nil
+        )
         writeQueue.async {
             let errorMessage: String?
             do {
@@ -100,11 +108,14 @@ enum WidgetDataStore {
                 errorMessage = "写入小组件快照失败：\(error.localizedDescription)"
             }
             Task { @MainActor in
+                if backgroundTask != .invalid {
+                    UIApplication.shared.endBackgroundTask(backgroundTask)
+                }
                 guard generation == writeGeneration else { return }
                 if let errorMessage {
                     recordSyncFailure(errorMessage)
                 } else {
-                    WidgetCenter.shared.reloadAllTimelines()
+                    WidgetCenter.shared.reloadTimelines(ofKind: fridgeTrackerWidgetKind)
                     recordSyncSuccess()
                 }
             }

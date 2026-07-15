@@ -95,4 +95,24 @@ final class WidgetSyncStatusTests: XCTestCase {
         ))
         XCTAssertFalse(AppRuntime.isAutomatedTest(arguments: ["FridgeTracker"], environment: [:]))
     }
+
+    func testPersistentStorePreparationCreatesMissingIntermediateDirectories() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let storeURL = root
+            .appendingPathComponent("Library/Application Support", isDirectory: true)
+            .appendingPathComponent("default.store")
+
+        try PersistentStorePreparation.createParentDirectory(for: storeURL)
+        try PersistentStorePreparation.createParentDirectory(for: storeURL)
+
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: storeURL.deletingLastPathComponent().path,
+            isDirectory: &isDirectory
+        ))
+        XCTAssertTrue(isDirectory.boolValue)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
 }

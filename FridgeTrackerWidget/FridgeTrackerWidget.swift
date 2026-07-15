@@ -132,7 +132,10 @@ struct FridgeTrackerWidgetProvider: AppIntentTimelineProvider {
             configuration: configuration,
             items: await loadItems(for: configuration, relativeTo: now)
         )
-        let nextUpdate = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) ?? now.addingTimeInterval(86_400)
+        // reloadTimelines(ofKind:) is advisory and may be throttled. A short periodic fallback
+        // guarantees that a Widget created before the first App snapshot does not stay empty until
+        // the next calendar day.
+        let nextUpdate = nextFridgeTrackerWidgetRefreshDate(after: now)
         return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
@@ -358,7 +361,7 @@ struct ExpiringFoodWidgetRow: View {
 }
 
 struct FridgeTrackerWidget: Widget {
-    let kind = "FridgeTrackerWidget"
+    let kind = fridgeTrackerWidgetKind
 
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: FridgeTrackerWidgetConfigurationIntent.self, provider: FridgeTrackerWidgetProvider()) { entry in

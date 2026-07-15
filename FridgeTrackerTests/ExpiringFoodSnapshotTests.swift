@@ -363,6 +363,20 @@ final class ExpiringFoodSnapshotTests: XCTestCase {
         XCTAssertTrue(filteredExpiringFoodSnapshots([item], categoryID: nil, relativeTo: today, calendar: calendar).isEmpty)
     }
 
+    func testWidgetRefreshContractUsesStableKindAndFifteenMinuteFallback() {
+        XCTAssertEqual(fridgeTrackerWidgetKind, "FridgeTrackerWidget")
+        XCTAssertEqual(fridgeTrackerWidgetRefreshInterval, 15 * 60)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        XCTAssertEqual(
+            nextFridgeTrackerWidgetRefreshDate(after: now),
+            now.addingTimeInterval(15 * 60)
+        )
+        XCTAssertEqual(
+            nextFridgeTrackerWidgetRefreshDate(after: now, interval: 0),
+            now.addingTimeInterval(60)
+        )
+    }
+
     func testLocalDateIsStrictGregorianAndCodableAsYYYYMMDD() throws {
         XCTAssertNil(LocalDate(year: 2026, month: 2, day: 30))
         let leapDay = try XCTUnwrap(LocalDate(year: 2028, month: 2, day: 29))

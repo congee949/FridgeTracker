@@ -7,6 +7,8 @@ import SwiftUI
 // 快照文件 URL、JSON 编解码器，以及 expiryStatusText / expiryStatusColor 展示辅助。
 // 修改时请勿移除任一 target 的 membership，否则 widget 或 app 会因找不到符号而编译失败。
 let fridgeTrackerAppGroupIdentifier = "group.com.congee.FridgeTracker"
+let fridgeTrackerWidgetKind = "FridgeTrackerWidget"
+let fridgeTrackerWidgetRefreshInterval: TimeInterval = 15 * 60
 let expiringFoodsSnapshotFileName = "expiring-foods.json"
 /// 与写入端 `WidgetDataStore.maximumSnapshotSize` 保持一致。读取端在真正打开文件前
 /// 先做一次元数据预检，并在读取后再次校验，避免损坏或被替换的快照撑爆 Widget 进程。
@@ -383,4 +385,11 @@ extension JSONDecoder {
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }
+}
+
+func nextFridgeTrackerWidgetRefreshDate(
+    after date: Date,
+    interval: TimeInterval = fridgeTrackerWidgetRefreshInterval
+) -> Date {
+    date.addingTimeInterval(max(interval, 60))
 }

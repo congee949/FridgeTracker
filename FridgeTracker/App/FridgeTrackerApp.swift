@@ -28,6 +28,22 @@ enum AppRuntime {
     }
 }
 
+/// SwiftData chooses the App Group store URL from the target entitlements, but on a freshly
+/// installed iOS 27 app its `Library/Application Support` parent may not exist yet. Core Data does
+/// not reliably create that intermediate directory itself, so prepare it before opening the store
+/// while preserving SwiftData's exact URL for existing installations.
+enum PersistentStorePreparation {
+    nonisolated static func createParentDirectory(
+        for storeURL: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        try fileManager.createDirectory(
+            at: storeURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+    }
+}
+
 @main
 struct FridgeTrackerApp: App {
     @StateObject private var bootstrap: AppBootstrap
@@ -93,7 +109,7 @@ final class AppBootstrap: ObservableObject {
 
     func resetStore() {
         do {
-            let (_, configuration) = makeSchemaAndConfiguration()
+            let (_, configuration) = try makeSchemaAndConfiguration()
             if !inMemory, FileManager.default.fileExists(atPath: configuration.url.path) {
                 recoveryURL = try quarantineStore(at: configuration.url, reason: "manual-reset")
             }
@@ -107,7 +123,7 @@ final class AppBootstrap: ObservableObject {
 
     private func load() {
         do {
-            let (schema, configuration) = makeSchemaAndConfiguration()
+            let (schema, configuration) = try makeSchemaAndConfiguration()
             if !inMemory {
                 try prepareMigrationBackupIfNeeded(storeURL: configuration.url)
             }
@@ -126,9 +142,12 @@ final class AppBootstrap: ObservableObject {
         }
     }
 
-    private func makeSchemaAndConfiguration() -> (Schema, ModelConfiguration) {
+    private func makeSchemaAndConfiguration() throws -> (Schema, ModelConfiguration) {
         let schema = Schema(versionedSchema: FridgeTrackerSchemaV2.self)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        if !inMemory {
+            try PersistentStorePreparation.createParentDirectory(for: configuration.url)
+        }
         return (schema, configuration)
     }
 
